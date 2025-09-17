@@ -296,11 +296,12 @@ async def get_task_result(task_id: str, format: Optional[str] = None):
     
     # Get report
     report = task.get("report")
-    if not report:
-        results = task.get("results")
-        if not results:
-            raise HTTPException(status_code=500, detail="No results available")
-        
+    results = task.get("results")
+
+    if not report and not results:
+        raise HTTPException(status_code=500, detail="No results available")
+
+    if not report and results:
         # Generate report if not cached
         if format == "json" or task.get("output_format") == "json":
             report = report_generator.generate_json_report(results)
@@ -308,10 +309,10 @@ async def get_task_result(task_id: str, format: Optional[str] = None):
             report = report_generator.generate_markdown_report(results)
         else:
             report = report_generator.generate_html_report(results)
-    
+
     # Return appropriate response type
     if format == "json" or task.get("output_format") == "json":
-        return JSONResponse(content=results if format == "json" else report)
+        return JSONResponse(content=results if format == "json" and results else report)
     elif format == "markdown" or task.get("output_format") == "markdown":
         return Response(content=report, media_type="text/markdown")
     else:

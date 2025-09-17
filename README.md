@@ -156,6 +156,92 @@ Add to `.claude/settings.local.json`:
 }
 ```
 
+## Research Agent
+
+This project includes a comprehensive Research Agent microservice that leverages the SearXNG MCP server along with Ollama LLM to perform automated research tasks.
+
+### Features
+- **Automated Research**: Performs multi-step research with query analysis, search execution, and content synthesis
+- **LLM Integration**: Uses Ollama with customizable models for intelligent analysis
+- **Beautiful Reports**: Generates HTML reports with key findings and sources
+- **Progress Tracking**: Real-time status updates during research execution
+- **Resilient Design**: Falls back to search snippets when content fetching fails
+
+### Quick Start
+
+1. Navigate to the research-agent directory:
+```bash
+cd research-agent
+```
+
+2. Start the services:
+```bash
+docker-compose up -d
+```
+
+3. Test the research agent:
+```bash
+python3 test_research.py "Your research query here"
+```
+
+4. Access the API:
+- Health check: `http://localhost:8001/health`
+- Start research: POST to `http://localhost:8001/api/research`
+- Check status: GET `http://localhost:8001/api/research/{task_id}/status`
+- Get results: GET `http://localhost:8001/api/research/{task_id}/result`
+
+### Research Depths
+- **quick**: Fast research with minimal sources (5-10 sources)
+- **standard**: Balanced research (10-20 sources)
+- **comprehensive**: Thorough research with extensive sources (20-50 sources)
+
+## Additional MCP Servers
+
+This project also includes configurations for several other useful MCP servers that enhance Claude Code's capabilities:
+
+### Playwright MCP Server
+Provides browser automation capabilities for web scraping and testing.
+
+```bash
+# Add to Claude Code
+claude mcp add playwright npx @playwright/mcp@latest
+```
+
+**Features:**
+- Browser automation and control
+- Web page navigation and interaction
+- Screenshot capture
+- Form filling and clicking
+- JavaScript execution on pages
+
+### Context7 MCP Server
+Provides access to up-to-date documentation and code examples for any library.
+
+```bash
+# Add to Claude Code
+claude mcp add context7 -- npx -y @upstash/context7-mcp
+```
+
+**Features:**
+- Retrieve current documentation for libraries
+- Search for code examples and usage patterns
+- Access to package information and versions
+- Support for multiple programming languages
+
+### Shadcn MCP Server
+Provides access to shadcn/ui components and utilities for building modern web applications.
+
+```bash
+# Initialize shadcn in your project
+npx shadcn@latest mcp init --client claude
+```
+
+**Features:**
+- Browse and search shadcn/ui components
+- View component examples and documentation
+- Get installation commands for components
+- Access to component source code
+
 ## Usage
 
 Once configured, you can use the search tool in Claude Code:

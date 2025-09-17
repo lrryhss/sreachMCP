@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  research-agent:
+    build: .
+    image: research-agent:latest
+    container_name: research-agent
+    ports:
+      - "8001:8000"
+    environment:
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_CORS_ORIGINS=["*"]
+
+      # Ollama Configuration
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=gpt-oss:20b
+      - OLLAMA_TIMEOUT=120
+
+      # MCP Configuration
+      - MCP_TIMEOUT=30
+
+      # Content Fetching
+      - CONTENT_FETCHING_MAX_CONCURRENT=5
+      - CONTENT_FETCHING_TIMEOUT=10
+      - CONTENT_FETCHING_MAX_CONTENT_SIZE=1048576
+      - CONTENT_FETCHING_USER_AGENT=Research-Agent/1.0
+
+      # Research Configuration
+      - RESEARCH_MAX_SOURCES_DEFAULT=20
+      - RESEARCH_DEFAULT_DEPTH=standard
+
+      # Logging
+      - LOG_LEVEL=DEBUG
+      - LOG_FORMAT=json
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./templates:/app/templates:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - research-net
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: research-redis
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - research-net
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+networks:
+  research-net:
+    driver: bridge
+
+volumes:
+  redis-data:

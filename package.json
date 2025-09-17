@@ -5,12 +5,17 @@
   "mcpServers": {
     "searxng": {
       "command": "python",
-      "args": ["src/server.py"],
+      "args": [
+        "src/server.py"
+      ],
       "env": {
         "SEARXNG_BASE_URL": "http://localhost:8090",
         "MCP_TRANSPORT": "stdio",
         "LOG_LEVEL": "INFO"
       }
     }
+  },
+  "devDependencies": {
+    "shadcn": "^3.3.1"
   }
 }

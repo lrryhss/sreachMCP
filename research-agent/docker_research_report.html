@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Report: What is Docker?</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta-item svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .executive-summary {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 25px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+        }
+
+        .executive-summary h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+
+        .key-findings {
+            display: grid;
+            gap: 20px;
+        }
+
+        .finding-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .finding-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .finding-text {
+            flex: 1;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .confidence-badge {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .confidence-medium {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .confidence-low {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .finding-sources {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        .themes {
+            display: grid;
+            gap: 20px;
+        }
+
+        .theme-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #764ba2;
+        }
+
+        .theme-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .theme-description {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        .contradictions {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .contradiction-point {
+            font-weight: 600;
+            color: #c53030;
+            margin-bottom: 10px;
+        }
+
+        .viewpoint {
+            background: white;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border-left: 3px solid #fc8181;
+        }
+
+        .sources {
+            display: grid;
+            gap: 15px;
+        }
+
+        .source-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .source-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .source-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .source-title a {
+            color: #667eea;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .source-title a:hover {
+            text-decoration: underline;
+        }
+
+        .source-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .source-summary {
+            color: #4a5568;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .source-meta {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #718096;
+        }
+
+        .recommendations {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        .recommendation-list {
+            list-style: none;
+        }
+
+        .recommendation-list li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #22543d;
+        }
+
+        .recommendation-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #48bb78;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .further-research {
+            background: #fef5e7;
+            border: 1px solid #f8c471;
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        .further-research ul {
+            list-style: none;
+        }
+
+        .further-research li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #784212;
+        }
+
+        .further-research li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .meta-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .statistics {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>What is Docker?</h1>
+            <div class="meta-info">
+                <div class="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12H7v-2h2v2zm0-4H7V5h2v3zm4 4h-2v-2h2v2zm0-4h-2V5h2v3z"/>
+                    </svg>
+                    <span>Task ID: res_a8c1c1ccbf21</span>
+                </div>
+                <div class="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V5h2v5z"/>
+                    </svg>
+                    <span>Generated: 2025-09-17 19:18:38 UTC</span>
+                </div>
+                <div class="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M3 3h14v14H3V3zm2 2v10h10V5H5z"/>
+                    </svg>
+                    <span>10 Sources</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="content">
+            <div class="executive-summary">
+                <h2>Executive Summary</h2>
+                <p>Docker is an open‑source container platform that packages an application and all of its dependencies into a lightweight, portable unit called a container. Unlike virtual machines, containers share the host operating‑system kernel, which makes them far smaller, faster to start, and more resource‑efficient. The Docker ecosystem revolves around three core concepts: images (immutable snapshots built from Dockerfiles), containers (runtime instances of images), and the Docker Engine (client‑server runtime that builds, runs, and manages containers). Images are stored in registries such as Docker Hub or private repositories, enabling easy sharing and versioning. Docker’s tooling—Docker Compose for local multi‑container setups, Docker Swarm for native clustering, and Kubernetes for large‑scale orchestration—provides a complete workflow from development to production. The primary benefits of Docker are consistency across environments, rapid deployment, high density of workloads, and support for micro‑service architectures and CI/CD pipelines. By abstracting away environment differences, Docker reduces configuration drift, speeds up release cycles, and simplifies the management of complex distributed systems. While Docker is widely adopted, questions remain about long‑term security, multi‑architecture image support, and best practices for production‑grade deployments. Future research should focus on container runtime alternatives, hardened security models, and performance benchmarking across diverse workloads.</p>
+            </div>
+
+            <div class="statistics">
+                <div class="stat-card">
+                    <div class="stat-value">303</div>
+                    <div class="stat-label">Words Analyzed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">92%</div>
+                    <div class="stat-label">Average Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Search Strategies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">Pages Fetched</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Key Findings</h2>
+                <div class="key-findings">
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <div class="finding-text">Docker containers encapsulate an application and its dependencies into a single, portable image that runs consistently across any host with Docker Engine.</div>
+                            <span class="confidence-badge">95% confident</span>
+                        </div>
+                        <div class="finding-sources">
+                            Sources: 1, 2, 3, 4, 5, 6, 7, 8
+                        </div>
+                    </div>
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <div class="finding-text">Images are immutable, built from declarative Dockerfiles, and layered to enable efficient storage and sharing.</div>
+                            <span class="confidence-badge">92% confident</span>
+                        </div>
+                        <div class="finding-sources">
+                            Sources: 1, 2, 3, 4, 5, 6, 7, 8
+                        </div>
+                    </div>
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <div class="finding-text">Containers share the host kernel, making them 5–10 % the size of a comparable VM and capable of starting in milliseconds.</div>
+                            <span class="confidence-badge">88% confident</span>
+                        </div>
+                        <div class="finding-sources">
+                            Sources: 4, 5, 6, 7
+                        </div>
+                    </div>
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <div class="finding-text">Docker’s ecosystem includes Docker Hub/registries, Docker Compose, Docker Swarm, and Kubernetes integration for scaling and orchestration.</div>
+                            <span class="confidence-badge">90% confident</span>
+                        </div>
+                        <div class="finding-sources">
+                            Sources: 1, 2, 3, 4, 7, 8
+                        </div>
+                    </div>
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <div class="finding-text">Docker enables rapid CI/CD pipelines, micro‑service architectures, and consistent deployment from development to production.</div>
+                            <span class="confidence-badge">93% confident</span>
+                        </div>
+                        <div class="finding-sources">
+                            Sources: 1, 2, 3, 4, 5, 6, 7
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Major Themes</h2>
+                <div class="themes">
+                    <div class="theme-card">
+                        <div class="theme-title">Containerization as a lightweight virtualization model</div>
+                        <div class="theme-description">Docker leverages OS‑level isolation (namespaces, cgroups) to provide isolated, fast, and efficient runtime environments that share the host kernel.</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-title">Immutable, versioned images and reproducible environments</div>
+                        <div class="theme-description">Images built from Dockerfiles are immutable snapshots that can be versioned, shared, and reproduced across all stages of the software lifecycle.</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-title">Ecosystem and tooling for orchestration and scalability</div>
+                        <div class="theme-description">Docker integrates with Compose, Swarm, and Kubernetes, providing a full stack from local development to large‑scale production orchestration.</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-title">Business value: consistency, speed, and resource efficiency</div>
+                        <div class="theme-description">Docker reduces configuration drift, accelerates deployment, and increases workload density, enabling modern DevOps practices.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Contradictions & Conflicting Views</h2>
+                <div class="contradictions">
+                    <div class="contradiction-point">Container size relative to VMs</div>
+                    <div class="viewpoint">Containers are 5–10 % the size of a comparable VM (Source 4, 5).</div>
+                    <div class="viewpoint">Containers are typically 10–100 MB in size, which can be comparable to small VMs (Source 5).</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Sources</h2>
+                <div class="sources">
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">1</span>
+                            <a href="https://docs.docker.com/get-started/docker-overview/" target="_blank" rel="noopener noreferrer">
+                                What is Docker?
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What is Docker?**
+
+Docker is a lightweight, open‑source platform that lets developers package an application and all of its dependencies into a single, portable unit called a *container*. A container bundles the code, runtime, system libraries, and settings so that the application runs the...
+                        </div>
+                        <div class="source-meta">
+                            <span>26 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">2</span>
+                            <a href="https://www.docker.com/" target="_blank" rel="noopener noreferrer">
+                                Docker: Accelerated Container Application Development
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What is Docker?**  
+Docker is an open‑source platform that simplifies the creation, distribution, and execution of applications by using *containers*. A container packages an application together with all of its dependencies—libraries, runtime, configuration files—into a single, lightweight,...
+                        </div>
+                        <div class="source-meta">
+                            <span>24 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">3</span>
+                            <a href="https://opensource.com/resources/what-docker" target="_blank" rel="noopener noreferrer">
+                                What is Docker? - Opensource.com
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What is Docker?**
+
+Docker is a modern, open‑source platform that simplifies the creation, deployment, and operation of applications by using container technology. At its core, Docker packages an application and all of its dependencies—libraries, runtime, configuration files, and even system...
+                        </div>
+                        <div class="source-meta">
+                            <span>28 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">4</span>
+                            <a href="https://www.howtogeek.com/devops/what-does-docker-do-and-when-should-you-use-it/" target="_blank" rel="noopener noreferrer">
+                                What Does Docker Do, and When Should You Use It?
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What Is Docker?**
+
+Docker is a lightweight, open‑source platform that enables developers to package an application and all of its dependencies into a single, portable unit called a *container*. Unlike traditional virtual machines (VMs), which emulate an entire operating system and require a...
+                        </div>
+                        <div class="source-meta">
+                            <span>46 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">5</span>
+                            <a href="https://www.reddit.com/r/AskProgramming/comments/15ctngm/what_exactly_is_docker_and_how_do_i_benefit_from/" target="_blank" rel="noopener noreferrer">
+                                What exactly is Docker and how do I benefit from using it? - Reddit
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What is Docker?**  
+Docker is a platform that simplifies the creation, deployment, and management of applications by using *containers*. Containers bundle an application and all of its dependencies—libraries, binaries, configuration files—into a single, portable unit that can run consistently...
+                        </div>
+                        <div class="source-meta">
+                            <span>32 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">6</span>
+                            <a href="https://medium.com/@yogeshkolhatkar/what-is-docker-and-why-should-you-use-it-8fc85f9203e6" target="_blank" rel="noopener noreferrer">
+                                What is Docker and Why Should You Use It? - Medium
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What is Docker?**  
+Docker is an open‑source platform that simplifies the creation, deployment, and management of applications by using *containers*. Think of a container as a lightweight, self‑contained runtime environment that bundles an application with all of its libraries, dependencies,...
+                        </div>
+                        <div class="source-meta">
+                            <span>22 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">7</span>
+                            <a href="https://aws.amazon.com/docker/" target="_blank" rel="noopener noreferrer">
+                                What is Docker?
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What Is Docker? A Quick Overview**
+
+Docker is a lightweight, open‑source platform that simplifies the process of building, testing, and deploying applications by using container technology. At its core, Docker packages an application and all of its dependencies—libraries, runtime,...
+                        </div>
+                        <div class="source-meta">
+                            <span>28 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">8</span>
+                            <a href="https://www.paloaltonetworks.com/cyberpedia/docker" target="_blank" rel="noopener noreferrer">
+                                What Is Docker? - Palo Alto Networks
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            **What Is Docker?**  
+Docker is an open‑source platform that simplifies the creation, deployment, and management of applications by using *containers*. Unlike traditional virtual machines, containers share the host operating‑system kernel, making them lightweight, fast to start, and highly...
+                        </div>
+                        <div class="source-meta">
+                            <span>27 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">9</span>
+                            <a href="https://datanorth.ai/blog/docker-what-is-it-and-why-is-it-important" target="_blank" rel="noopener noreferrer">
+                                Docker: What is it and why is it important? - DataNorth AI
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            Failed to generate summary.
+                        </div>
+                        <div class="source-meta">
+                            <span>47 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                    <div class="source-card">
+                        <div class="source-title">
+                            <span class="source-number">10</span>
+                            <a href="https://www.slashlogs.com/posts/docker-docker-compose-streamlining-development-and-deployment" target="_blank" rel="noopener noreferrer">
+                                Docker &amp; Docker Compose: Streamlining Development and ...
+                            </a>
+                        </div>
+                        <div class="source-summary">
+                            Failed to generate summary.
+                        </div>
+                        <div class="source-meta">
+                            <span>23 words</span>
+                            <span>Method: search_snippet</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Recommendations</h2>
+                <div class="recommendations">
+                    <ul class="recommendation-list">
+                        <li>Adopt Docker for local development to mirror production environments and reduce configuration drift.</li>
+                        <li>Use Docker Hub or private registries with image signing and scanning to enforce security and compliance.</li>
+                        <li>Integrate Docker Compose for local multi‑service setups and Kubernetes for production orchestration to leverage scalability and self‑healing.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Topics for Further Research</h2>
+                <div class="further-research">
+                    <ul>
+                        <li>Comparative analysis of container runtimes (Docker Engine vs. containerd vs. CRI‑O).</li>
+                        <li>Security hardening techniques for containerized applications, including runtime isolation and kernel hardening.</li>
+                        <li>Impact of containerization on application performance and resource utilization in high‑throughput micro‑service architectures.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Generated by Research Agent v1.0.0</p>
+            <p>Powered by <a href="https://ollama.ai" target="_blank">Ollama</a> and <a href="https://searxng.org" target="_blank">SearXNG</a></p>
+            <p>Report ID: res_a8c1c1ccbf21 | 2025-09-17 19:18:38 UTC</p>
+        </footer>
+    </div>
+</body>
+</html>

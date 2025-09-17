@@ -112,15 +112,16 @@ class SearchTool:
                 category=search_params.category
             )
 
-            # Perform search
-            results = await self.client.search(
-                query=search_params.query,
-                category=search_params.category,
-                engines=search_params.engines,
-                language=search_params.language,
-                time_range=search_params.time_range,
-                limit=search_params.limit or 10
-            )
+            # Perform search using the client context manager
+            async with self.client as client:
+                results = await client.search(
+                    query=search_params.query,
+                    category=search_params.category,
+                    engines=search_params.engines,
+                    language=search_params.language,
+                    time_range=search_params.time_range,
+                    limit=search_params.limit or 10
+                )
 
             # Format response for MCP
             formatted_results = self._format_for_mcp(results)

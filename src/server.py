@@ -8,6 +8,7 @@ import signal
 from typing import Any, Dict, Optional
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp import types
 from structlog import get_logger, configure, PrintLoggerFactory
 from structlog.processors import JSONRenderer, TimeStamper, add_log_level
 
@@ -79,27 +80,73 @@ class SearXNGMCPServer:
 
         # Register MCP handlers
         @self.server.list_tools()
-        async def list_tools() -> list[dict]:
+        async def list_tools() -> list[types.Tool]:
             """List available tools."""
-            tools = self.tool_registry.list_tools()
+
+            tools = []
+            for tool in self.tool_registry.tools.values():
+                tools.append(types.Tool(
+                    name=tool.name,
+                    description=tool.description,
+                    inputSchema=tool.parameters
+                ))
+
             logger.debug(f"Listing {len(tools)} tools")
             return tools
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> Any:
+        async def call_tool(name: str, arguments: Dict[str, Any]) -> list[types.TextContent]:
             """Execute a tool."""
-            logger.info(f"Tool call requested", tool_name=name, arguments=arguments)
+            try:
+                logger.info(f"Tool call requested", tool_name=name, arguments=arguments)
 
-            tool = self.tool_registry.get_tool(name)
-            if not tool:
-                error_msg = f"Tool '{name}' not found"
-                logger.error(error_msg)
-                return {"error": error_msg}
+                tool = self.tool_registry.get_tool(name)
+                if not tool:
+                    error_msg = f"Tool '{name}' not found"
+                    logger.error(error_msg)
+                    return [types.TextContent(type="text", text=f"Error: {error_msg}")]
 
-            async with self.client as client:
+                # Execute the tool
                 result = await tool.execute(arguments)
                 logger.debug(f"Tool execution completed", tool_name=name, success=result.get("success"))
-                return result
+
+                # Convert result to MCP format
+                logger.debug(f"Tool result: {result}")
+
+                if result.get("success", False):
+                    data = result.get("data", {})
+                    logger.debug(f"Tool data: {data}")
+
+                    # Return the raw search data as JSON text
+                    # The client expects the actual search results, not formatted text
+                    import json
+                    response_json = json.dumps(data)
+                    logger.debug(f"Returning JSON response of length {len(response_json)}")
+
+                    # Create TextContent with explicit parameters to avoid serialization issues
+                    text_content = types.TextContent(
+                        type="text",
+                        text=response_json,
+                        annotations=None
+                    )
+                    return [text_content]
+                else:
+                    error_msg = result.get("error", "Unknown error occurred")
+                    text_content = types.TextContent(
+                        type="text",
+                        text=f"Search failed: {error_msg}",
+                        annotations=None
+                    )
+                    return [text_content]
+
+            except Exception as e:
+                logger.error(f"Tool call handler error: {e}", exc_info=True)
+                text_content = types.TextContent(
+                    type="text",
+                    text=f"Internal error: {str(e)}",
+                    annotations=None
+                )
+                return [text_content]
 
         logger.info("Server initialization complete")
 

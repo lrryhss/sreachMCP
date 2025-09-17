@@ -1,0 +1,197 @@
+# Default Configuration for Research Agent
+
+# Application Settings
+app:
+  name: "Research Agent"
+  version: "1.0.0"
+  debug: false
+  environment: "development"
+
+# API Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  reload: true  # Auto-reload on code changes (dev only)
+  cors:
+    enabled: true
+    origins: ["*"]
+    methods: ["GET", "POST", "DELETE", "OPTIONS"]
+    headers: ["Content-Type", "Authorization"]
+
+# Ollama Configuration
+ollama:
+  base_url: "http://host.docker.internal:11434"
+  model: "gpt-oss:20b"
+  timeout: 120
+  max_retries: 3
+  context_length: 8192
+  temperature: 0.7
+  top_p: 0.9
+  options:
+    num_predict: 2048
+    stop: ["</s>", "\n\n\n"]
+
+# MCP Server Configuration
+mcp:
+  docker_command: "docker"
+  docker_args:
+    - "run"
+    - "--rm"
+    - "-i"
+    - "--add-host=host.docker.internal:host-gateway"
+    - "-e"
+    - "SEARXNG_BASE_URL=http://host.docker.internal:8090"
+    - "-e"
+    - "LOG_LEVEL=ERROR"
+    - "searxng-mcp-server:latest"
+  timeout: 30
+  max_retries: 3
+
+# Content Fetching Configuration
+content_fetching:
+  max_concurrent: 5
+  timeout: 10
+  max_content_size: 1048576  # 1MB
+  user_agent: "Mozilla/5.0 (Research-Agent/1.0; +http://localhost:8080/about)"
+  headers:
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    Accept-Language: "en-US,en;q=0.5"
+    Accept-Encoding: "gzip, deflate"
+    DNT: "1"
+  retry_strategy:
+    max_attempts: 3
+    backoff_factor: 2
+    max_backoff: 30
+
+# Search Configuration
+search:
+  max_results_per_search: 10
+  max_searches_per_query: 3
+  engines:
+    - google
+    - bing
+    - duckduckgo
+  categories:
+    - web
+    - news
+  language: "en"
+  time_range: "month"  # day, week, month, year, all
+
+# Research Configuration
+research:
+  default_depth: "standard"  # quick, standard, comprehensive
+  max_sources: 20
+  min_sources: 5
+  quality_threshold: 0.7
+  max_research_time: 300  # 5 minutes
+  chunk_size: 4000  # tokens per chunk for LLM
+
+# Report Configuration
+report:
+  template_dir: "templates"
+  static_dir: "static"
+  formats:
+    - html
+    - json
+    - markdown
+  include_citations: true
+  include_summary: true
+  include_timeline: false
+  max_summary_length: 500  # words
+
+# Redis Configuration
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null
+  decode_responses: true
+  socket_timeout: 5
+  connection_pool:
+    max_connections: 50
+    max_idle_time: 30
+
+# Cache Configuration
+cache:
+  enabled: true
+  ttl:
+    search_results: 3600      # 1 hour
+    fetched_content: 86400    # 24 hours
+    generated_reports: 604800  # 7 days
+    ollama_responses: 1800     # 30 minutes
+
+# Celery Configuration
+celery:
+  broker_url: "redis://localhost:6379/1"
+  result_backend: "redis://localhost:6379/2"
+  task_serializer: "json"
+  result_serializer: "json"
+  accept_content: ["json"]
+  timezone: "UTC"
+  enable_utc: true
+  task_routes:
+    "research.tasks.fetch_content": "fetch_queue"
+    "research.tasks.synthesize": "synthesis_queue"
+    "research.tasks.generate_report": "report_queue"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "json"  # json or plain
+  file:
+    enabled: true
+    path: "logs/research-agent.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    colorize: true
+
+# Monitoring Configuration
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+  health_check:
+    path: "/health"
+    include_details: true
+  readiness_check:
+    path: "/ready"
+
+# Security Configuration
+security:
+  rate_limiting:
+    enabled: true
+    default: "100/minute"
+    research_endpoint: "10/minute"
+  input_validation:
+    max_query_length: 500
+    max_custom_instructions: 1000
+  cors:
+    enabled: true
+    allow_credentials: false
+  content_security:
+    blocked_domains:
+      - "malware.com"
+    max_redirects: 5
+
+# Feature Flags
+features:
+  streaming_responses: true
+  websocket_support: true
+  pdf_extraction: true
+  academic_search: false
+  export_pdf: false
+  multi_language: false
+
+# Webhook Configuration
+webhooks:
+  enabled: false
+  timeout: 10
+  max_retries: 3
+  events:
+    - "research.started"
+    - "research.completed"
+    - "research.failed"

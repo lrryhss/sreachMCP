@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "searxng": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--add-host=host.docker.internal:host-gateway",
+        "-e",
+        "SEARXNG_BASE_URL=http://host.docker.internal:8090",
+        "-e",
+        "LOG_LEVEL=ERROR",
+        "searxng-mcp-server:latest"
+      ]
+    }
+  }
+}

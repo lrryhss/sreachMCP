@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Note: Using existing SearXNG container (chtcs-searxng) on port 8090
+  # If you want to manage SearXNG here, uncomment the section below:
+
+  # searxng:
+  #   image: searxng/searxng:latest
+  #   container_name: searxng
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8090:8080"
+  #   volumes:
+  #     - ./searxng:/etc/searxng:rw
+  #   environment:
+  #     - BASE_URL=http://localhost:8090/
+  #     - INSTANCE_NAME=searxng-mcp
+  #   networks:
+  #     - mcp-network
+
+  # MCP Server for SearXNG
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: searxng-mcp-server:latest
+    container_name: searxng-mcp-server
+    restart: unless-stopped
+    environment:
+      # Using host network to reach existing SearXNG container
+      - SEARXNG_BASE_URL=http://host.docker.internal:8090
+      - MCP_TRANSPORT=stdio
+      - LOG_LEVEL=INFO
+      - MAX_RESULTS=10
+      - DEFAULT_LANGUAGE=en
+      - REQUEST_TIMEOUT=30
+      - RETRY_ATTEMPTS=3
+    volumes:
+      # Mount src for development (optional, remove for production)
+      - ./src:/app/src:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    tty: true
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  searxng-data:

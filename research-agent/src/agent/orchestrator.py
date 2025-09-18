@@ -150,9 +150,11 @@ class ResearchOrchestrator:
                     all_search_results, unique_urls, max_sources
                 )
 
-            # Step 4: Summarize individual sources
+            # Step 4: Summarize individual sources and collect media
             await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, 70, "content_synthesis")
             summaries = []
+            all_media = []  # Collect all media items
+
             async with self.ollama_client as ollama:
                 for i, content in enumerate(prioritized_contents):
                     # Update progress
@@ -166,18 +168,87 @@ class ResearchOrchestrator:
                         focus=query
                     )
 
+                    # Collect media from this source
+                    if content.get("media"):
+                        for media_item in content["media"]:
+                            media_item["source_index"] = i + 1  # Track which source it came from
+                            all_media.append(media_item)
+
                     summaries.append({
                         "url": content["url"],
                         "title": content.get("title", ""),
                         "summary": summary,
                         "word_count": content.get("word_count", 0),
-                        "extraction_method": content.get("method", "")
+                        "extraction_method": content.get("method", ""),
+                        "media": content.get("media", [])[:2]  # Keep first 2 media items per source
                     })
 
             # Step 5: Synthesize research
             await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, 85, "research_synthesis")
             async with self.ollama_client as ollama:
                 synthesis = await ollama.synthesize_research(summaries, query)
+
+                # Debug logging
+                logger.info(f"Synthesis type: {type(synthesis)}, has executive_summary: {'executive_summary' in synthesis}")
+                if "executive_summary" in synthesis:
+                    logger.info(f"Executive summary type: {type(synthesis['executive_summary'])}, length: {len(str(synthesis['executive_summary']))}")
+
+                # Reformat executive summary if it's a plain string
+                if isinstance(synthesis.get("executive_summary"), str) and synthesis["executive_summary"]:
+                    logger.info("Reformatting executive summary for better readability")
+                    try:
+                        # Get markdown formatted text with paragraph breaks
+                        formatted_text = await ollama.reformat_executive_summary(synthesis["executive_summary"])
+
+                        # Replace the executive summary with formatted version
+                        synthesis["executive_summary"] = formatted_text
+
+                        logger.info("Executive summary reformatted successfully")
+                    except Exception as e:
+                        logger.warning("Failed to reformat executive summary", error=str(e))
+                        # Keep original if reformatting fails
+
+            # Generate detailed analysis using multi-step approach (outside the context manager)
+            logger.info("Starting multi-step detailed analysis generation")
+
+            # Create progress callback for detailed analysis
+            async def analysis_progress(progress: int, step: str):
+                await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, progress, step)
+
+            try:
+                # Call multi-step analysis directly without context manager
+                # The client manages its own persistent session
+                detailed_analysis = await self.ollama_client.generate_detailed_analysis_multistep(
+                    summaries=summaries,
+                    query=query,
+                    progress_callback=analysis_progress
+                )
+                synthesis["detailed_analysis"] = detailed_analysis
+                logger.info(f"Generated detailed analysis with {len(detailed_analysis.get('sections', []))} sections")
+            except Exception as e:
+                logger.warning("Failed to generate multi-step detailed analysis", error=str(e))
+                # Fallback is already handled in ollama_client.py
+
+            # Select featured media (top 5 unique items, prioritizing images)
+            featured_media = []
+            seen_urls = set()
+
+            # First, add images
+            for media in all_media:
+                if media.get("type") == "image" and media.get("url") not in seen_urls:
+                    featured_media.append(media)
+                    seen_urls.add(media["url"])
+                    if len(featured_media) >= 5:
+                        break
+
+            # Then add videos if we have space
+            if len(featured_media) < 5:
+                for media in all_media:
+                    if media.get("type") in ["video", "youtube"] and media.get("url") not in seen_urls:
+                        featured_media.append(media)
+                        seen_urls.add(media["url"])
+                        if len(featured_media) >= 5:
+                            break
 
             # Step 6: Complete
             await self.update_task_status(task_id, ResearchStatus.COMPLETED, 100, "completed")
@@ -191,6 +262,7 @@ class ResearchOrchestrator:
                 "sources_used": len(summaries),
                 "synthesis": synthesis,
                 "sources": summaries,
+                "featured_media": featured_media,  # Add featured media
                 "metadata": {
                     "depth": depth,
                     "max_sources": max_sources,
@@ -198,7 +270,8 @@ class ResearchOrchestrator:
                     "total_urls_found": len(all_urls),
                     "unique_urls": len(unique_urls),
                     "content_fetched": len(contents),
-                    "valid_content": len(valid_contents)
+                    "valid_content": len(valid_contents),
+                    "total_media_found": len(all_media)
                 },
                 "completed_at": datetime.utcnow().isoformat()
             }

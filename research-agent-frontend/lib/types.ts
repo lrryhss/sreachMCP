@@ -86,6 +86,24 @@ export interface Source {
   media?: MediaItem[];
 }
 
+export interface AnalysisQuote {
+  text: string;
+  source_id: number;
+  author?: string;
+}
+
+export interface AnalysisSection {
+  title: string;
+  content: string;
+  quotes?: AnalysisQuote[];
+  statistics?: Record<string, string | number>;
+  sources: number[];
+  subsections?: Array<{
+    subtitle: string;
+    content: string;
+  }>;
+}
+
 export interface ResearchReport {
   task_id: string;
   query: string;
@@ -100,11 +118,7 @@ export interface ResearchReport {
   executive_summary: string;
   key_findings: KeyFinding[];
   detailed_analysis: {
-    sections: Array<{
-      title: string;
-      content: string;
-      sources: number[];
-    }>;
+    sections: AnalysisSection[];
   };
   sources: Source[];
   related_topics?: string[];

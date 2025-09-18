@@ -23,6 +23,7 @@ import type { ResearchReport, KeyFinding, Source, MediaItem } from '@/lib/types'
 import { MediaPreview, MediaGallery } from './media-preview';
 import { EnhancedFindingCard } from './enhanced-finding-card';
 import { FindingsOverview } from './findings-overview';
+import { DetailedAnalysisView } from './detailed-analysis-view';
 import styles from './research-results.module.css';
 
 interface ResearchResultsProps {
@@ -259,47 +260,57 @@ export function ResearchResults({ report, onExport }: ResearchResultsProps) {
 
         {/* Detailed Analysis */}
         <TabsContent value="analysis">
-          <Card>
-            <CardContent className="pt-6">
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-6">
-                  {report.detailed_analysis?.sections ? (
-                    report.detailed_analysis.sections.map((section, index) => (
-                      <div key={index}>
-                        <h3 className="text-lg font-semibold mb-3">{section.title}</h3>
-                        <div
-                          className="prose prose-sm max-w-none text-muted-foreground"
-                          dangerouslySetInnerHTML={{ __html: section.content }}
-                        />
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Sources: {section.sources?.map(id => `[${id}]`).join(', ') || 'N/A'}
+          {(() => {
+            console.log('=== DETAILED ANALYSIS DEBUG ===');
+            console.log('Full report object:', report);
+            console.log('report.detailed_analysis:', report.detailed_analysis);
+            console.log('report.detailed_analysis type:', typeof report.detailed_analysis);
+            if (report.detailed_analysis) {
+              console.log('detailed_analysis keys:', Object.keys(report.detailed_analysis));
+              console.log('sections exists:', !!report.detailed_analysis.sections);
+              if (report.detailed_analysis.sections) {
+                console.log('sections type:', typeof report.detailed_analysis.sections);
+                console.log('sections length:', report.detailed_analysis.sections.length);
+                console.log('sections array:', report.detailed_analysis.sections);
+                console.log('first section:', report.detailed_analysis.sections[0]);
+              }
+            }
+            console.log('Condition result:', !!(report.detailed_analysis?.sections && report.detailed_analysis.sections.length > 0));
+            console.log('=== END DEBUG ===');
+            return null;
+          })()}
+          {report.detailed_analysis?.sections && report.detailed_analysis.sections.length > 0 ? (
+            <DetailedAnalysisView
+              sections={report.detailed_analysis.sections}
+              sources={report.sources || []}
+            />
+          ) : (
+            // Fallback to old style if new format not available
+            <Card>
+              <CardContent className="pt-6">
+                <ScrollArea className="h-[600px] pr-4">
+                  <div className="space-y-6">
+                    {report.themes ? (
+                      report.themes.map((theme: any, index: number) => (
+                        <div key={index}>
+                          <h3 className="text-lg font-semibold mb-3">{theme.theme}</h3>
+                          <p className="text-muted-foreground">{theme.description}</p>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Sources: {theme.sources?.map((id: number) => `[${id}]`).join(', ') || 'N/A'}
+                          </div>
+                          {index < report.themes.length - 1 && (
+                            <Separator className="mt-6" />
+                          )}
                         </div>
-                        {index < report.detailed_analysis.sections.length - 1 && (
-                          <Separator className="mt-6" />
-                        )}
-                      </div>
-                    ))
-                  ) : report.themes ? (
-                    // Fallback to themes if detailed_analysis is not available
-                    report.themes.map((theme: any, index: number) => (
-                      <div key={index}>
-                        <h3 className="text-lg font-semibold mb-3">{theme.theme}</h3>
-                        <p className="text-muted-foreground">{theme.description}</p>
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Sources: {theme.sources?.map((id: number) => `[${id}]`).join(', ') || 'N/A'}
-                        </div>
-                        {index < report.themes.length - 1 && (
-                          <Separator className="mt-6" />
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground">No detailed analysis available.</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">No detailed analysis available.</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Sources */}

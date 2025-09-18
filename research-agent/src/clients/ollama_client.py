@@ -23,17 +23,29 @@ class OllamaClient:
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.timeout = timeout
-        self.session = None
+        # Create persistent session immediately
+        self.session = httpx.AsyncClient(timeout=self.timeout)
+        self._context_managed = False
 
     async def __aenter__(self):
         """Async context manager entry"""
-        self.session = httpx.AsyncClient(timeout=self.timeout)
+        # Session already created in __init__, just mark as context managed
+        self._context_managed = True
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
+        # Only close if we're in context manager mode
+        # Keep session open for direct usage
+        if self._context_managed:
+            self._context_managed = False
+            # Don't close the session, keep it persistent
+
+    async def close(self):
+        """Close the persistent session"""
         if self.session:
             await self.session.aclose()
+            self.session = None
 
     async def health_check(self) -> bool:
         """Check if Ollama is accessible
@@ -85,7 +97,8 @@ class OllamaClient:
             Generated text
         """
         if not self.session:
-            raise RuntimeError("Client not initialized. Use 'async with' context manager.")
+            # Session should always exist now, but add safety check
+            self.session = httpx.AsyncClient(timeout=self.timeout)
 
         payload = {
             "model": self.model,
@@ -134,7 +147,8 @@ class OllamaClient:
             Assistant's response
         """
         if not self.session:
-            raise RuntimeError("Client not initialized. Use 'async with' context manager.")
+            # Session should always exist now, but add safety check
+            self.session = httpx.AsyncClient(timeout=self.timeout)
 
         payload = {
             "model": self.model,
@@ -388,6 +402,35 @@ Provide your synthesis in JSON format with the following structure:
         // Ensure at least 2-3 primary findings
         // Include emerging trends and considerations
     ],
+    "detailed_analysis": {{
+        "sections": [
+            {{
+                "title": "Overview and Background",
+                "content": "Comprehensive overview in 2-3 paragraphs",
+                "sources": [1, 2]
+            }},
+            {{
+                "title": "Key Technologies and Methods",
+                "content": "Main technologies and approaches in 2-3 paragraphs",
+                "sources": [1, 2, 3]
+            }},
+            {{
+                "title": "Current State and Developments",
+                "content": "Recent developments and current status in 2-3 paragraphs",
+                "sources": [2, 3]
+            }},
+            {{
+                "title": "Challenges and Limitations",
+                "content": "Main challenges and limitations in 2-3 paragraphs",
+                "sources": [1, 3]
+            }},
+            {{
+                "title": "Future Outlook",
+                "content": "Future predictions and trends in 2-3 paragraphs",
+                "sources": [1, 2, 3]
+            }}
+        ]
+    }},
     "themes": [
         {{"theme": "Major theme 1", "description": "Description", "sources": [1, 2, 3]}}
     ],
@@ -418,7 +461,7 @@ IMPORTANT:
 Return ONLY the JSON object."""
 
         try:
-            response = await self.generate(prompt, temperature=0.4, max_tokens=3000)
+            response = await self.generate(prompt, temperature=0.4, max_tokens=4000)
 
             # Extract and parse JSON
             response = response.strip()
@@ -440,6 +483,44 @@ Return ONLY the JSON object."""
                 synthesis["executive_summary"] = "\n\n".join(p for p in paragraphs if p)
                 synthesis["pull_quote"] = exec_summary.get("pull_quote", "")
 
+            # Ensure detailed_analysis exists with proper structure
+            if not synthesis.get("detailed_analysis") or not synthesis["detailed_analysis"].get("sections"):
+                # Generate fallback sections from themes if available
+                sections = []
+                if synthesis.get("themes"):
+                    for theme in synthesis["themes"][:5]:  # Take up to 5 themes
+                        sections.append({
+                            "title": theme.get("theme", "Analysis Section"),
+                            "content": theme.get("description", "Detailed analysis content."),
+                            "sources": theme.get("sources", [])
+                        })
+                else:
+                    # Create default sections
+                    sections = [
+                        {
+                            "title": "Overview and Background",
+                            "content": "This research provides comprehensive insights into the topic based on analysis of multiple sources.",
+                            "sources": [1, 2]
+                        },
+                        {
+                            "title": "Key Findings",
+                            "content": "The primary findings indicate significant developments in the field with notable implications.",
+                            "sources": [1, 2, 3]
+                        },
+                        {
+                            "title": "Current State",
+                            "content": "The current landscape shows rapid evolution with multiple stakeholders contributing to advancement.",
+                            "sources": [2, 3]
+                        },
+                        {
+                            "title": "Future Outlook",
+                            "content": "Looking ahead, several trends suggest continued growth and innovation in this area.",
+                            "sources": [1, 2, 3]
+                        }
+                    ]
+
+                synthesis["detailed_analysis"] = {"sections": sections}
+
             return synthesis
 
         except json.JSONDecodeError as e:
@@ -454,6 +535,297 @@ Return ONLY the JSON object."""
                 "recommendations": [],
                 "further_research": [],
                 "pull_quote": ""
+            }
+
+    async def generate_analysis_outline(
+        self,
+        summaries: List[Dict[str, str]],
+        query: str
+    ) -> List[str]:
+        """Generate outline of main sections for detailed analysis
+
+        Args:
+            summaries: List of content summaries
+            query: Research query
+
+        Returns:
+            List of section titles
+        """
+        summaries_text = "\n\n".join([
+            f"Source {i+1}: {s.get('summary', '')[:500]}"
+            for i, s in enumerate(summaries[:10])  # Use first 10 for outline
+        ])
+
+        prompt = f"""Based on this research about "{query}", create an outline for a detailed analysis report.
+
+Research summaries:
+{summaries_text}
+
+Generate 5-8 main section titles that comprehensively cover the topic.
+Provide ONLY the section titles, one per line, no numbering or bullets.
+
+Examples of good section titles:
+- Technical Innovations and Breakthroughs
+- Market Impact and Economic Implications
+- Current Implementation Status
+- Challenges and Limitations
+- Future Outlook and Predictions
+- Regulatory and Policy Considerations
+
+Section titles:"""
+
+        try:
+            response = await self.generate(prompt, temperature=0.5, max_tokens=500)
+            sections = [line.strip() for line in response.strip().split('\n') if line.strip()]
+            return sections[:8]  # Limit to 8 sections max
+        except Exception as e:
+            logger.warning("Failed to generate outline", error=str(e))
+            # Return default sections
+            return [
+                "Overview and Background",
+                "Key Developments and Findings",
+                "Technical Analysis",
+                "Challenges and Considerations",
+                "Future Implications"
+            ]
+
+    async def generate_section_content(
+        self,
+        section_title: str,
+        summaries: List[Dict[str, str]],
+        query: str,
+        section_index: int
+    ) -> str:
+        """Generate detailed content for a specific section
+
+        Args:
+            section_title: Title of the section
+            summaries: All research summaries
+            query: Research query
+            section_index: Index of this section
+
+        Returns:
+            Section content (2-3 paragraphs)
+        """
+        # Pass all summaries for comprehensive analysis
+        summaries_text = "\n\n".join([
+            f"Source [{i+1}] ({s.get('url', 'Unknown')}):\n{s.get('summary', '')}"
+            for i, s in enumerate(summaries)
+        ])
+
+        prompt = f"""Write a detailed analysis section titled "{section_title}" for research about "{query}".
+
+Research data from all sources:
+{summaries_text}
+
+Requirements:
+1. Write 2-3 comprehensive paragraphs (300-500 words total)
+2. Include specific details, data points, and examples from the sources
+3. Reference source numbers like [1], [2] when citing information
+4. Focus specifically on aspects related to "{section_title}"
+5. Make the content informative and analytical, not just descriptive
+
+Section content:"""
+
+        try:
+            response = await self.generate(prompt, temperature=0.6, max_tokens=1000)
+            return response.strip()
+        except Exception as e:
+            logger.warning(f"Failed to generate section content for {section_title}", error=str(e))
+            return f"Analysis of {section_title} based on the research findings."
+
+    async def extract_quotes_and_stats(
+        self,
+        section_content: str,
+        section_title: str,
+        summaries: List[Dict[str, str]]
+    ) -> Dict[str, Any]:
+        """Extract relevant quotes and statistics from sources for a section
+
+        Args:
+            section_content: The generated section content
+            section_title: Title of the section
+            summaries: Original source summaries
+
+        Returns:
+            Dictionary with quotes and statistics
+        """
+        summaries_text = "\n\n".join([
+            f"Source [{i+1}]:\n{s.get('summary', '')}"
+            for i, s in enumerate(summaries[:10])  # Focus on most relevant
+        ])
+
+        prompt = f"""Extract quotes and statistics relevant to "{section_title}" from these sources:
+
+{summaries_text}
+
+Find:
+1. 1-2 direct quotes that support the section content (if available)
+2. Key statistics or data points mentioned
+
+Format as JSON:
+{{
+    "quotes": [
+        {{"text": "quote text", "source_id": 1, "author": "Author Name or Source"}}
+    ],
+    "statistics": {{"metric_name": "value", "percentage": "85%"}}
+}}
+
+If no relevant quotes or stats found, return empty arrays/objects.
+Return ONLY the JSON:"""
+
+        try:
+            response = await self.generate(prompt, temperature=0.3, max_tokens=500)
+            # Extract JSON
+            response = response.strip()
+            if response.startswith("```json"):
+                response = response[7:]
+            if response.startswith("```"):
+                response = response[3:]
+            if response.endswith("```"):
+                response = response[:-3]
+
+            result = json.loads(response.strip())
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to extract quotes/stats for {section_title}", error=str(e))
+            return {"quotes": [], "statistics": {}}
+
+    async def generate_subsections(
+        self,
+        section_title: str,
+        section_content: str
+    ) -> List[Dict[str, str]]:
+        """Generate subsections if the section would benefit from them
+
+        Args:
+            section_title: Title of the main section
+            section_content: Content of the main section
+
+        Returns:
+            List of subsections with subtitle and content
+        """
+        prompt = f"""Does this section need subsections for better organization?
+
+Section Title: {section_title}
+Section Content: {section_content[:500]}...
+
+If yes, create 1-2 subsection titles and brief content (1-2 paragraphs each).
+If no subsections needed, respond with "NO_SUBSECTIONS".
+
+Format if subsections needed:
+SUBSECTION 1: [Title]
+[Content]
+
+SUBSECTION 2: [Title]
+[Content]"""
+
+        try:
+            response = await self.generate(prompt, temperature=0.5, max_tokens=600)
+
+            if "NO_SUBSECTIONS" in response:
+                return []
+
+            subsections = []
+            parts = response.split("SUBSECTION")
+            for part in parts[1:]:  # Skip first empty part
+                if ":" in part:
+                    lines = part.strip().split('\n')
+                    title = lines[0].split(':', 1)[1].strip()
+                    content = '\n'.join(lines[1:]).strip()
+                    if title and content:
+                        subsections.append({
+                            "subtitle": title,
+                            "content": content
+                        })
+
+            return subsections[:2]  # Max 2 subsections
+        except Exception as e:
+            logger.warning(f"Failed to generate subsections for {section_title}", error=str(e))
+            return []
+
+    async def generate_detailed_analysis_multistep(
+        self,
+        summaries: List[Dict[str, str]],
+        query: str,
+        progress_callback=None
+    ) -> Dict[str, Any]:
+        """Generate detailed analysis using multi-step prompting
+
+        Args:
+            summaries: List of content summaries
+            query: Research query
+            progress_callback: Optional callback for progress updates
+
+        Returns:
+            Detailed analysis with sections, quotes, and statistics
+        """
+        try:
+            # Step 1: Generate outline
+            if progress_callback:
+                await progress_callback(75, "Generating analysis outline")
+
+            section_titles = await self.generate_analysis_outline(summaries, query)
+            logger.info(f"Generated {len(section_titles)} sections for analysis")
+
+            # Step 2: Generate content for each section
+            sections = []
+            for i, title in enumerate(section_titles):
+                if progress_callback:
+                    progress = 75 + (10 * (i + 1) / len(section_titles))
+                    await progress_callback(progress, f"Writing section: {title}")
+
+                # Generate section content
+                content = await self.generate_section_content(title, summaries, query, i)
+
+                # Extract source references from content
+                source_refs = []
+                for j in range(1, min(21, len(summaries) + 1)):
+                    if f"[{j}]" in content:
+                        source_refs.append(j)
+
+                # Step 3: Extract quotes and statistics for this section
+                quotes_stats = await self.extract_quotes_and_stats(content, title, summaries)
+
+                # Step 4: Generate subsections if needed (only for longer sections)
+                subsections = []
+                if len(content) > 800:  # Only for substantial sections
+                    subsections = await self.generate_subsections(title, content)
+
+                section = {
+                    "title": title,
+                    "content": content,
+                    "quotes": quotes_stats.get("quotes", []),
+                    "statistics": quotes_stats.get("statistics", {}),
+                    "sources": source_refs[:5],  # Limit to 5 source references
+                    "subsections": subsections
+                }
+
+                sections.append(section)
+
+            if progress_callback:
+                await progress_callback(90, "Finalizing analysis structure")
+
+            return {
+                "sections": sections
+            }
+
+        except Exception as e:
+            logger.error("Failed to generate detailed analysis", error=str(e))
+            # Return fallback structure
+            return {
+                "sections": [
+                    {
+                        "title": "Overview",
+                        "content": "Comprehensive analysis of the research findings.",
+                        "sources": [1, 2]
+                    },
+                    {
+                        "title": "Key Findings",
+                        "content": "The main discoveries and insights from the research.",
+                        "sources": [1, 2, 3]
+                    }
+                ]
             }
 
     async def stream_generate(
@@ -471,7 +843,8 @@ Return ONLY the JSON object."""
             Generated text chunks
         """
         if not self.session:
-            raise RuntimeError("Client not initialized. Use 'async with' context manager.")
+            # Session should always exist now, but add safety check
+            self.session = httpx.AsyncClient(timeout=self.timeout)
 
         payload = {
             "model": self.model,

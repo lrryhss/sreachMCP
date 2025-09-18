@@ -44,11 +44,14 @@ export function useResearch(taskId?: string) {
           ...data,
           executive_summary: data.synthesis.executive_summary,
           key_findings: data.synthesis.key_findings,
+          detailed_analysis: data.synthesis.detailed_analysis,
           themes: data.synthesis.themes,
           contradictions: data.synthesis.contradictions,
           recommendations: data.synthesis.recommendations,
           further_research: data.synthesis.further_research,
+          pull_quote: data.synthesis.pull_quote,
           sources: data.sources || [],
+          featured_media: data.featured_media || [],
           metadata: data.metadata || {},
         };
       }

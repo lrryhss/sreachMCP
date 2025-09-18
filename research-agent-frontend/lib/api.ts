@@ -45,7 +45,7 @@ class ResearchAPI {
   async getResearchReport(taskId: string, format: 'json' | 'html' = 'json'): Promise<ResearchReport | string> {
     const response = await this.client.get(`/api/research/${taskId}/result`, {
       params: { format },
-      headers: format === 'html' ? { 'Accept': 'text/html' } : {},
+      headers: format === 'html' ? { 'Accept': 'text/html' } : { 'Accept': 'application/json' },
     });
     return response.data;
   }

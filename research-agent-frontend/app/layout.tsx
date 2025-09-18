@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,33 +23,37 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="border-b">
-              <div className="container mx-auto px-4 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-bold">Research Agent</h1>
-                    <nav className="hidden md:flex gap-4">
-                      <a href="/" className="text-sm hover:underline">
-                        New Research
-                      </a>
-                      <a href="/history" className="text-sm hover:underline">
-                        History
-                      </a>
-                    </nav>
-                  </div>
-                </div>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <Providers>
+              <SidebarProvider>
+              <div className="flex h-screen w-full">
+                <AppSidebar />
+                <SidebarInset className="flex-1 overflow-hidden">
+                  <header className="flex h-16 items-center justify-between border-b px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    <div className="flex items-center gap-2">
+                      <SidebarTrigger />
+                      <div className="h-4 w-px bg-border" />
+                      <h2 className="text-lg font-semibold">Research Dashboard</h2>
+                    </div>
+                    <ThemeToggle />
+                  </header>
+                  <main className="flex-1 overflow-y-auto bg-muted/40">
+                    <div className="container mx-auto p-6">
+                      {children}
+                    </div>
+                  </main>
+                </SidebarInset>
               </div>
-            </header>
-
-            {/* Main content */}
-            <main className="container mx-auto px-4 py-8">
-              {children}
-            </main>
-          </div>
-        </Providers>
+            </SidebarProvider>
+          </Providers>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

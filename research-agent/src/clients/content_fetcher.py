@@ -96,6 +96,60 @@ class ContentFetcher:
                 logger.warning("Error fetching URL", url=url, error=str(e))
                 return None
 
+    def _extract_media(self, soup, url: str) -> list:
+        """Extract media from BeautifulSoup object
+
+        Args:
+            soup: BeautifulSoup object
+            url: Base URL for resolving relative URLs
+
+        Returns:
+            List of media items
+        """
+        from urllib.parse import urljoin
+        media = []
+
+        # Extract images
+        for img in soup.find_all("img", src=True)[:5]:  # Limit to 5 images
+            img_url = img.get("src")
+            if img_url:
+                # Make absolute URL if relative
+                if not img_url.startswith(("http://", "https://")):
+                    img_url = urljoin(url, img_url)
+
+                media.append({
+                    "url": img_url,
+                    "type": "image",
+                    "title": img.get("alt", ""),
+                    "description": img.get("title", "")
+                })
+
+        # Extract videos
+        for video in soup.find_all("video", src=True)[:3]:  # Limit to 3 videos
+            video_url = video.get("src")
+            if video_url:
+                if not video_url.startswith(("http://", "https://")):
+                    video_url = urljoin(url, video_url)
+
+                media.append({
+                    "url": video_url,
+                    "type": "video",
+                    "title": video.get("title", ""),
+                    "thumbnail": video.get("poster", "")
+                })
+
+        # Check for YouTube embeds
+        for iframe in soup.find_all("iframe", src=True)[:3]:
+            iframe_src = iframe.get("src", "")
+            if "youtube.com" in iframe_src or "youtu.be" in iframe_src:
+                media.append({
+                    "url": iframe_src.replace("/embed/", "/watch?v="),
+                    "type": "youtube",
+                    "title": iframe.get("title", "YouTube Video")
+                })
+
+        return media
+
     async def extract_content(self, html: str, url: str) -> Dict[str, Any]:
         """Extract clean content from HTML
 
@@ -118,6 +172,10 @@ class ContentFetcher:
             )
 
             if extracted and extracted.get("text"):
+                # Also try to extract media from the HTML
+                soup = BeautifulSoup(html, "html.parser")
+                media = self._extract_media(soup, url)
+
                 return {
                     "url": url,
                     "title": extracted.get("title", ""),
@@ -125,7 +183,8 @@ class ContentFetcher:
                     "author": extracted.get("author", ""),
                     "date": extracted.get("date", ""),
                     "method": "trafilatura",
-                    "word_count": len(extracted["text"].split())
+                    "word_count": len(extracted["text"].split()),
+                    "media": media
                 }
 
             # Fallback to BeautifulSoup
@@ -141,6 +200,9 @@ class ContentFetcher:
                 title = soup.title.string or ""
             elif soup.find("h1"):
                 title = soup.find("h1").get_text(strip=True)
+
+            # Extract media
+            media = self._extract_media(soup, url)
 
             # Extract main content
             # Try to find main content areas
@@ -168,7 +230,8 @@ class ContentFetcher:
                 "author": "",
                 "date": "",
                 "method": "beautifulsoup",
-                "word_count": len(text.split())
+                "word_count": len(text.split()),
+                "media": media
             }
 
         except Exception as e:

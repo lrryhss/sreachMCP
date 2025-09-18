@@ -17,7 +17,7 @@ from .config import settings
 from .agent.orchestrator import ResearchOrchestrator
 from .services.report_generator import ReportGenerator
 from .database import db_manager
-from .api import auth
+from .api import auth, research
 
 # Use uvloop for better async performance
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -77,6 +77,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(research.router)
 
 
 # Request/Response Models
@@ -174,12 +175,12 @@ async def health_check():
     return health_status
 
 
-@app.post("/api/research", response_model=ResearchResponse)
-async def start_research(
+@app.post("/api/research-legacy", response_model=ResearchResponse)
+async def start_research_legacy(
     request: ResearchRequest,
     background_tasks: BackgroundTasks
 ):
-    """Start a new research task"""
+    """Start a new research task (legacy endpoint without auth)"""
     try:
         # Generate task ID
         task_id = f"res_{uuid.uuid4().hex[:12]}"

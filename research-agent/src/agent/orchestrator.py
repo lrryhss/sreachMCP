@@ -12,6 +12,9 @@ from ..clients.ollama_client import OllamaClient
 from ..clients.mcp_client import MCPSearchClient
 from ..clients.content_fetcher import ContentFetcher
 from ..config import settings
+from ..database.connection import db_manager
+from ..services.database_service import DatabaseService
+from ..database.models import TaskStatus as DBTaskStatus
 
 logger = get_logger()
 
@@ -354,6 +357,9 @@ class ResearchOrchestrator:
 
             task["updated_at"] = datetime.utcnow().isoformat()
 
+            # Also update in database
+            asyncio.create_task(self._update_database_task_status(task_id, status, progress))
+
             logger.info(
                 "Task status updated",
                 task_id=task_id,
@@ -578,3 +584,36 @@ class ResearchOrchestrator:
 
         logger.info("Synthesis validation and repair completed")
         return synthesis
+
+    async def _update_database_task_status(self, task_id: str, status: ResearchStatus, progress: int) -> None:
+        """Update task status in database if available"""
+        try:
+            # Map internal status to database status
+            db_status_map = {
+                ResearchStatus.PENDING: DBTaskStatus.PENDING,
+                ResearchStatus.ANALYZING: DBTaskStatus.ANALYZING,
+                ResearchStatus.SEARCHING: DBTaskStatus.SEARCHING,
+                ResearchStatus.FETCHING: DBTaskStatus.FETCHING,
+                ResearchStatus.SYNTHESIZING: DBTaskStatus.SYNTHESIZING,
+                ResearchStatus.GENERATING: DBTaskStatus.GENERATING,
+                ResearchStatus.COMPLETED: DBTaskStatus.COMPLETED,
+                ResearchStatus.FAILED: DBTaskStatus.FAILED,
+                ResearchStatus.CANCELLED: DBTaskStatus.CANCELLED,
+            }
+
+            db_status = db_status_map.get(status)
+            if not db_status:
+                return
+
+            async with db_manager.get_session() as session:
+                db_service = DatabaseService(session)
+                await db_service.tasks.update_status(
+                    task_id=task_id,
+                    status=db_status,
+                    progress=progress
+                )
+                await db_service.commit()
+
+        except Exception as e:
+            # Log but don't fail if database update fails
+            logger.warning("Failed to update database task status", task_id=task_id, error=str(e))

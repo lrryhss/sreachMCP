@@ -60,24 +60,127 @@ export function AnalysisSection({ section, sources, sectionNumber, isActive }: A
     return BarChart3;
   };
 
-  // Format content into paragraphs if needed
+  // Enhanced markdown parser for magazine-style formatting
+  const parseMarkdown = (text: string) => {
+    return text
+      // Headers (### only) with enhanced styling
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      // Bold text with enhanced styling
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Italic text with enhanced styling
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Bullet points with diamond bullets
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      // Blockquotes with magazine styling
+      .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+      // Source citations in brackets [1], [2], etc.
+      .replace(/\[(\d+)\]/g, '<span class="source-citation">[$1]</span>')
+      // Line breaks
+      .replace(/\n/g, '<br />');
+  };
+
+  // Wrap consecutive list items in ul tags
+  const wrapLists = (html: string) => {
+    return html.replace(/(<li[^>]*>.*?<\/li>)(\s*<li[^>]*>.*?<\/li>)*/gs, (match) => {
+      return `<ul class="space-y-1 my-4">${match}</ul>`;
+    });
+  };
+
+  // Format content into paragraphs with markdown support
   const formatContent = (content: string) => {
+    // More aggressive cleaning - remove all types of quotes and escaping
+    let cleanContent = content.trim();
+
+    // Debug log the raw content
+    console.log('Raw content received:', {
+      first100: content.substring(0, 100),
+      hasDoubleQuotes: content.includes('"'),
+      hasSingleQuotes: content.includes("'"),
+      startsWithQuote: content[0] === '"' || content[0] === "'",
+      endsWithQuote: content[content.length - 1] === '"' || content[content.length - 1] === "'"
+    });
+
+    // Remove surrounding quotes - multiple passes to handle nested quotes
+    while ((cleanContent.startsWith('"') && cleanContent.endsWith('"')) ||
+           (cleanContent.startsWith("'") && cleanContent.endsWith("'")) ||
+           (cleanContent.startsWith('"') && cleanContent.endsWith('"')) ||
+           (cleanContent.startsWith('"') && cleanContent.endsWith('"'))) {
+      cleanContent = cleanContent.slice(1, -1).trim();
+    }
+
+    // Unescape any escaped quotes and other characters
+    cleanContent = cleanContent
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'")
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\\/g, '\\');
+
     // If content already has HTML paragraph tags, render as HTML
-    if (content.includes('<p>')) {
+    if (cleanContent.includes('<p>')) {
       return (
         <div
-          className="prose prose-sm dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: content }}
+          className="prose prose-sm dark:prose-invert max-w-none detailed-analysis-content"
+          dangerouslySetInnerHTML={{ __html: cleanContent }}
         />
       );
     }
 
-    // Otherwise, split by double newlines and create paragraphs
-    const paragraphs = content.split('\n\n').filter(p => p.trim());
+    // Check if content has markdown formatting - look for any markdown patterns
+    const markdownPatterns = [
+      /\*\*[^*]+\*\*/,  // Bold text
+      /\*[^*]+\*/,      // Italic text
+      /^#{1,6} /m,      // Headers
+      /^- /m,           // Bullet lists
+      /^> /m,           // Blockquotes
+      /\[.*?\]\(.*?\)/, // Links
+      /`[^`]+`/         // Inline code
+    ];
+
+    const hasMarkdown = markdownPatterns.some(pattern => pattern.test(cleanContent));
+
+    console.log('Format content processing:', {
+      originalLength: content.length,
+      cleanedLength: cleanContent.length,
+      first50Clean: cleanContent.substring(0, 50),
+      hasMarkdown,
+      hasBoldPattern: /\*\*[^*]+\*\*/.test(cleanContent),
+      hasItalicPattern: /\*[^*]+\*/.test(cleanContent)
+    });
+
+    if (hasMarkdown || cleanContent.includes('**') || cleanContent.includes('*')) {
+      // Parse markdown and convert to HTML
+      const parsedContent = parseMarkdown(cleanContent);
+      const contentWithLists = wrapLists(parsedContent);
+
+      // Split into paragraphs and wrap each paragraph
+      const paragraphs = contentWithLists.split('\n\n').filter(p => p.trim());
+      const formattedHtml = paragraphs.map(paragraph => {
+        // If paragraph already has HTML tags, use as is
+        if (paragraph.includes('<h3>') || paragraph.includes('<ul>') ||
+            paragraph.includes('<blockquote>')) {
+          return paragraph;
+        }
+        // Otherwise wrap in paragraph tags with enhanced styling
+        return `<p class="mb-6 text-lg leading-[1.8] text-muted-foreground font-serif">${paragraph}</p>`;
+      }).join('\n');
+
+      console.log('Generated HTML preview:', formattedHtml.substring(0, 200));
+
+      return (
+        <div
+          className="detailed-analysis-content magazine-layout"
+          dangerouslySetInnerHTML={{ __html: formattedHtml }}
+        />
+      );
+    }
+
+    // Fallback: split by double newlines and create paragraphs with enhanced typography
+    const paragraphs = cleanContent.split('\n\n').filter(p => p.trim());
     return (
-      <div className="space-y-4">
+      <div className="detailed-analysis-content magazine-layout space-y-6">
         {paragraphs.map((paragraph, index) => (
-          <p key={index} className="text-base leading-relaxed text-muted-foreground">
+          <p key={index} className="text-lg leading-[1.8] text-muted-foreground font-serif">
             {paragraph}
           </p>
         ))}

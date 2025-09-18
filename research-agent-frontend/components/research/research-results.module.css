@@ -1,3 +1,4 @@
+/* Executive Summary Styles */
 .executiveSummaryHtml p:first-child {
   font-size: 1.25rem;
   line-height: 1.75;
@@ -22,4 +23,206 @@
 
 .executiveSummaryHtml p:last-child {
   margin-bottom: 0;
+}
+
+/* Detailed Analysis Content Styles */
+.detailed-analysis-content {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  line-height: 1.8;
+  max-width: none;
+}
+
+/* Magazine-style layout enhancements */
+.magazine-layout {
+  text-align: justify;
+  hyphens: auto;
+  word-spacing: 0.05em;
+  letter-spacing: 0.01em;
+}
+
+.detailed-analysis-content h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: hsl(var(--foreground));
+  margin-top: 2.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid hsl(var(--primary) / 0.2);
+  padding-bottom: 0.75rem;
+  position: relative;
+}
+
+.detailed-analysis-content h3::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background: hsl(var(--primary));
+}
+
+.detailed-analysis-content p {
+  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: hsl(var(--foreground) / 0.9);
+  text-indent: 1.5rem;
+}
+
+/* First paragraph in each section gets special treatment */
+.detailed-analysis-content p:first-of-type {
+  font-size: 1.25rem;
+  line-height: 1.75;
+  margin-bottom: 2rem;
+  text-indent: 0;
+}
+
+/* Drop cap for first paragraph */
+.detailed-analysis-content p:first-of-type::first-letter {
+  float: left;
+  font-size: 4rem;
+  line-height: 3rem;
+  padding-right: 0.5rem;
+  padding-top: 0.25rem;
+  font-weight: bold;
+  color: hsl(var(--primary));
+  font-family: var(--font-sans);
+}
+
+.detailed-analysis-content strong {
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  font-size: 1.05em;
+  letter-spacing: 0.02em;
+}
+
+.detailed-analysis-content em {
+  font-style: italic;
+  color: hsl(var(--foreground) / 0.8);
+  font-size: 1.02em;
+}
+
+.detailed-analysis-content ul {
+  margin: 2rem 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.detailed-analysis-content li {
+  margin-bottom: 1rem;
+  position: relative;
+  padding-left: 2rem;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.detailed-analysis-content li::before {
+  content: "◆";
+  color: hsl(var(--primary));
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 1.2em;
+}
+
+/* Enhanced blockquotes with magazine styling */
+.detailed-analysis-content blockquote {
+  margin: 2.5rem 0;
+  padding: 2rem 2.5rem;
+  border-left: 6px solid hsl(var(--primary));
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.3), hsl(var(--muted) / 0.1));
+  border-radius: 0 1rem 1rem 0;
+  font-style: italic;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.85);
+  position: relative;
+  box-shadow: 0 4px 6px hsl(var(--muted) / 0.1);
+}
+
+.detailed-analysis-content blockquote::before {
+  content: '"';
+  font-size: 4rem;
+  color: hsl(var(--primary) / 0.3);
+  position: absolute;
+  top: -0.5rem;
+  left: 1rem;
+  font-family: var(--font-sans);
+  font-weight: 900;
+}
+
+.detailed-analysis-content blockquote::after {
+  content: '"';
+  font-size: 4rem;
+  color: hsl(var(--primary) / 0.3);
+  position: absolute;
+  bottom: -1.5rem;
+  right: 1rem;
+  font-family: var(--font-sans);
+  font-weight: 900;
+}
+
+/* Pull quotes for key statements */
+.detailed-analysis-content .pull-quote {
+  float: right;
+  width: 300px;
+  margin: 1rem 0 1rem 2rem;
+  padding: 1.5rem;
+  border: 2px solid hsl(var(--primary) / 0.2);
+  border-radius: 0.5rem;
+  background: hsl(var(--card));
+  font-size: 1.1rem;
+  line-height: 1.5;
+  font-style: italic;
+  color: hsl(var(--primary));
+  text-align: center;
+}
+
+/* Section dividers */
+.detailed-analysis-content .section-divider {
+  margin: 3rem 0;
+  text-align: center;
+  position: relative;
+}
+
+.detailed-analysis-content .section-divider::before {
+  content: "◆ ◆ ◆";
+  color: hsl(var(--primary) / 0.5);
+  font-size: 1.5rem;
+  letter-spacing: 1rem;
+}
+
+/* Enhanced typography for source citations */
+.detailed-analysis-content .source-citation {
+  font-size: 0.9rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-sans);
+  font-weight: 500;
+  margin: 0.5rem 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .detailed-analysis-content p:first-of-type::first-letter {
+    font-size: 3rem;
+    line-height: 2.5rem;
+  }
+
+  .detailed-analysis-content p {
+    font-size: 1rem;
+    text-indent: 1rem;
+  }
+
+  .detailed-analysis-content blockquote {
+    padding: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .detailed-analysis-content .pull-quote {
+    float: none;
+    width: 100%;
+    margin: 2rem 0;
+  }
 }

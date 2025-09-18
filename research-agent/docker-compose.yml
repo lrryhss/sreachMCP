@@ -60,6 +60,28 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
+  frontend:
+    build:
+      context: ../research-agent-frontend
+      dockerfile: Dockerfile
+    image: research-agent-frontend:latest
+    container_name: research-agent-frontend
+    ports:
+      - "3002:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+      - NODE_ENV=development
+    volumes:
+      # Mount source for hot-reload in development
+      - ../research-agent-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - research-net
+    restart: unless-stopped
+    depends_on:
+      - research-agent
+
 networks:
   research-net:
     driver: bridge

@@ -2,6 +2,7 @@
 
 import json
 import asyncio
+import re
 from typing import AsyncGenerator, Dict, List, Optional, Any
 import httpx
 from structlog import get_logger
@@ -350,6 +351,221 @@ Output format (ONLY output tags like these, no other text):
             # Return original wrapped in a paragraph tag
             return f'<p>{raw_summary}</p>'
 
+    def sanitize_json_response(self, response: str) -> str:
+        """Sanitize JSON response from LLM to fix common issues
+
+        Args:
+            response: Raw JSON string from LLM
+
+        Returns:
+            Sanitized JSON string
+        """
+        try:
+            # Remove invalid escape sequences
+            # Only keep valid JSON escape sequences
+            response = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', '', response)
+
+            # Fix newlines and tabs that might break JSON parsing
+            # Replace actual newlines in strings with escaped ones
+            response = re.sub(r'(?<!")(\n|\r\n)(?!")', ' ', response)
+
+            # Remove any trailing commas before closing brackets/braces
+            response = re.sub(r',\s*([}\]])', r'\1', response)
+
+            # Fix double quotes inside string values (not keys)
+            # This is a simple approach - may need refinement
+            response = re.sub(r'(?<=[:{,\[])\s*"([^"]*)"([^"]*)"', r'"\1\2"', response)
+
+            return response
+        except Exception as e:
+            logger.warning("Failed to sanitize JSON response", error=str(e))
+            return response
+
+    def validate_synthesis(self, synthesis: Dict[str, Any]) -> bool:
+        """Validate synthesis structure and content
+
+        Args:
+            synthesis: Synthesis dictionary to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Check for required fields
+        if not synthesis:
+            return False
+
+        # Validate executive summary
+        exec_summary = synthesis.get("executive_summary", "")
+        if not exec_summary or len(str(exec_summary)) < 100:
+            logger.warning("Executive summary too short or missing")
+            return False
+
+        # Validate key findings
+        key_findings = synthesis.get("key_findings", [])
+        if not key_findings or len(key_findings) < 3:
+            logger.warning("Insufficient key findings")
+            return False
+
+        # Check that findings have required fields
+        for finding in key_findings:
+            if not finding.get("finding") or not finding.get("headline"):
+                return False
+
+        return True
+
+    def _get_simpler_synthesis_prompt(self, summaries: List[Dict[str, str]], query: str, attempt: int) -> str:
+        """Generate a simpler prompt for retry attempts
+
+        Args:
+            summaries: List of source summaries
+            query: Research query
+            attempt: Current attempt number (0-based)
+
+        Returns:
+            Simpler prompt string
+        """
+        # Use fewer summaries for simpler processing
+        summaries_text = "\n\n".join([
+            f"Source {i+1}: {s.get('summary', '')[:300]}"
+            for i, s in enumerate(summaries[:5])  # Use only first 5 summaries
+        ])
+
+        if attempt == 1:
+            # Second attempt - simpler JSON structure
+            return f"""Synthesize research about "{query}" from these sources:
+
+{summaries_text}
+
+Return a JSON object with:
+{{
+    "executive_summary": "A comprehensive 200-300 word summary of the research findings",
+    "key_findings": [
+        {{
+            "headline": "Brief headline",
+            "finding": "1-2 sentence explanation",
+            "category": "primary",
+            "impact_score": 0.8,
+            "confidence": 0.8,
+            "supporting_sources": [1],
+            "statistics": {{}},
+            "keywords": []
+        }}
+        // Generate 4-6 findings
+    ],
+    "themes": [
+        {{"theme": "Main theme", "description": "Brief description", "sources": [1, 2]}}
+    ],
+    "contradictions": [],
+    "knowledge_gaps": [],
+    "recommendations": [],
+    "further_research": []
+}}
+
+Keep the JSON simple and valid. Avoid complex nested structures."""
+
+        else:
+            # Third attempt - minimal structure
+            return f"""Create a research summary for "{query}".
+
+Based on: {summaries_text[:500]}
+
+Return simple JSON:
+{{
+    "executive_summary": "Summary paragraph here",
+    "key_findings": [
+        {{"headline": "Finding 1", "finding": "Description", "category": "primary", "impact_score": 0.7, "confidence": 0.7, "supporting_sources": [1], "statistics": {{}}, "keywords": []}},
+        {{"headline": "Finding 2", "finding": "Description", "category": "secondary", "impact_score": 0.6, "confidence": 0.6, "supporting_sources": [1], "statistics": {{}}, "keywords": []}}
+    ],
+    "themes": [],
+    "contradictions": [],
+    "knowledge_gaps": [],
+    "recommendations": [],
+    "further_research": []
+}}"""
+
+    def generate_fallback_synthesis(self, summaries: List[Dict[str, str]], query: str) -> Dict[str, Any]:
+        """Generate a fallback synthesis when LLM fails
+
+        Args:
+            summaries: List of source summaries
+            query: Original research query
+
+        Returns:
+            Basic but valid synthesis structure
+        """
+        # Create a basic executive summary from the first few summaries
+        exec_summary_parts = []
+        for i, summary in enumerate(summaries[:3]):
+            if summary.get("summary"):
+                exec_summary_parts.append(summary["summary"][:200])
+
+        executive_summary = " ".join(exec_summary_parts) if exec_summary_parts else f"Research findings for: {query}"
+
+        # Extract key findings from summaries
+        key_findings = []
+        for i, summary in enumerate(summaries[:6]):
+            if summary.get("summary"):
+                # Extract first sentence as finding
+                first_sentence = summary["summary"].split('.')[0]
+                if first_sentence:
+                    key_findings.append({
+                        "headline": f"Finding from Source {i+1}",
+                        "finding": first_sentence + ".",
+                        "category": "primary" if i < 3 else "secondary",
+                        "impact_score": 0.7,
+                        "confidence": 0.6,
+                        "supporting_sources": [i + 1],
+                        "statistics": {},
+                        "keywords": []
+                    })
+
+        # Ensure we have at least some findings
+        if not key_findings:
+            key_findings = [{
+                "headline": "Research Conducted",
+                "finding": f"Analysis completed for query: {query}",
+                "category": "primary",
+                "impact_score": 0.5,
+                "confidence": 0.5,
+                "supporting_sources": [1],
+                "statistics": {},
+                "keywords": []
+            }]
+
+        # Create basic themes from source titles/URLs
+        themes = []
+        seen_themes = set()
+        for summary in summaries[:5]:
+            if summary.get("title"):
+                theme = summary["title"][:50]
+                if theme not in seen_themes:
+                    themes.append({
+                        "theme": theme,
+                        "description": summary.get("summary", "")[:100],
+                        "sources": [summaries.index(summary) + 1]
+                    })
+                    seen_themes.add(theme)
+
+        return {
+            "executive_summary": executive_summary,
+            "key_findings": key_findings,
+            "themes": themes,
+            "contradictions": [],
+            "knowledge_gaps": ["Unable to perform comprehensive analysis due to processing limitations"],
+            "recommendations": ["Further research recommended with alternative approaches"],
+            "further_research": [query],
+            "pull_quote": f"Research findings for: {query}",
+            "detailed_analysis": {
+                "sections": [
+                    {
+                        "title": "Overview",
+                        "content": executive_summary,
+                        "sources": list(range(1, min(4, len(summaries) + 1)))
+                    }
+                ]
+            }
+        }
+
     async def synthesize_research(
         self,
         summaries: List[Dict[str, str]],
@@ -460,82 +676,118 @@ IMPORTANT:
 
 Return ONLY the JSON object."""
 
-        try:
-            response = await self.generate(prompt, temperature=0.4, max_tokens=4000)
+        # Try up to 3 times with different strategies
+        for attempt in range(3):
+            try:
+                # Adjust temperature for retries
+                temperature = 0.4 + (attempt * 0.1)  # 0.4, 0.5, 0.6
 
-            # Extract and parse JSON
-            response = response.strip()
-            if response.startswith("```json"):
-                response = response[7:]
-            if response.startswith("```"):
-                response = response[3:]
-            if response.endswith("```"):
-                response = response[:-3]
+                response = await self.generate(prompt, temperature=temperature, max_tokens=4000)
 
-            synthesis = json.loads(response.strip())
+                # Extract and clean JSON
+                response = response.strip()
+                if response.startswith("```json"):
+                    response = response[7:]
+                if response.startswith("```"):
+                    response = response[3:]
+                if response.endswith("```"):
+                    response = response[:-3]
 
-            # Flatten executive_summary if it's in the new structured format
-            if isinstance(synthesis.get("executive_summary"), dict):
-                exec_summary = synthesis["executive_summary"]
-                # Combine paragraphs into formatted text
-                paragraphs = [exec_summary.get("lead_paragraph", "")]
-                paragraphs.extend(exec_summary.get("body_paragraphs", []))
-                synthesis["executive_summary"] = "\n\n".join(p for p in paragraphs if p)
-                synthesis["pull_quote"] = exec_summary.get("pull_quote", "")
+                # Sanitize the response to fix common JSON issues
+                sanitized_response = self.sanitize_json_response(response.strip())
 
-            # Ensure detailed_analysis exists with proper structure
-            if not synthesis.get("detailed_analysis") or not synthesis["detailed_analysis"].get("sections"):
-                # Generate fallback sections from themes if available
-                sections = []
-                if synthesis.get("themes"):
-                    for theme in synthesis["themes"][:5]:  # Take up to 5 themes
-                        sections.append({
-                            "title": theme.get("theme", "Analysis Section"),
-                            "content": theme.get("description", "Detailed analysis content."),
-                            "sources": theme.get("sources", [])
-                        })
+                try:
+                    synthesis = json.loads(sanitized_response)
+                except json.JSONDecodeError as json_error:
+                    # If first attempt fails, try without sanitization
+                    if attempt == 0:
+                        logger.warning(f"JSON parse failed on attempt {attempt + 1}, retrying", error=str(json_error))
+                        synthesis = json.loads(response.strip())
+                    else:
+                        raise json_error
+
+                # Flatten executive_summary if it's in the new structured format
+                if isinstance(synthesis.get("executive_summary"), dict):
+                    exec_summary = synthesis["executive_summary"]
+                    # Combine paragraphs into formatted text
+                    paragraphs = [exec_summary.get("lead_paragraph", "")]
+                    paragraphs.extend(exec_summary.get("body_paragraphs", []))
+                    synthesis["executive_summary"] = "\n\n".join(p for p in paragraphs if p)
+                    synthesis["pull_quote"] = exec_summary.get("pull_quote", "")
+
+                # Validate the synthesis
+                if self.validate_synthesis(synthesis):
+                    logger.info(f"Synthesis generated successfully on attempt {attempt + 1}")
+
+                    # Ensure detailed_analysis exists with proper structure
+                    if not synthesis.get("detailed_analysis") or not synthesis["detailed_analysis"].get("sections"):
+                        # Generate fallback sections from themes if available
+                        sections = []
+                        if synthesis.get("themes"):
+                            for theme in synthesis["themes"][:5]:  # Take up to 5 themes
+                                sections.append({
+                                    "title": theme.get("theme", "Analysis Section"),
+                                    "content": theme.get("description", "Detailed analysis content."),
+                                    "sources": theme.get("sources", [])
+                                })
+                        else:
+                            # Create default sections
+                            sections = [
+                                {
+                                    "title": "Overview and Background",
+                                    "content": "This research provides comprehensive insights into the topic based on analysis of multiple sources.",
+                                    "sources": [1, 2]
+                                },
+                                {
+                                    "title": "Key Findings",
+                                    "content": "The primary findings indicate significant developments in the field with notable implications.",
+                                    "sources": [1, 2, 3]
+                                },
+                                {
+                                    "title": "Current State",
+                                    "content": "The current landscape shows rapid evolution with multiple stakeholders contributing to advancement.",
+                                    "sources": [2, 3]
+                                },
+                                {
+                                    "title": "Future Outlook",
+                                    "content": "Looking ahead, several trends suggest continued growth and innovation in this area.",
+                                    "sources": [1, 2, 3]
+                                }
+                            ]
+
+                        synthesis["detailed_analysis"] = {"sections": sections}
+
+                    return synthesis
                 else:
-                    # Create default sections
-                    sections = [
-                        {
-                            "title": "Overview and Background",
-                            "content": "This research provides comprehensive insights into the topic based on analysis of multiple sources.",
-                            "sources": [1, 2]
-                        },
-                        {
-                            "title": "Key Findings",
-                            "content": "The primary findings indicate significant developments in the field with notable implications.",
-                            "sources": [1, 2, 3]
-                        },
-                        {
-                            "title": "Current State",
-                            "content": "The current landscape shows rapid evolution with multiple stakeholders contributing to advancement.",
-                            "sources": [2, 3]
-                        },
-                        {
-                            "title": "Future Outlook",
-                            "content": "Looking ahead, several trends suggest continued growth and innovation in this area.",
-                            "sources": [1, 2, 3]
-                        }
-                    ]
+                    logger.warning(f"Synthesis validation failed on attempt {attempt + 1}")
+                    if attempt < 2:
+                        # Try with a simpler prompt on retry
+                        prompt = self._get_simpler_synthesis_prompt(summaries, query, attempt)
+                        continue
+                    else:
+                        # Last attempt - use fallback
+                        logger.info("Using fallback synthesis generation")
+                        return self.generate_fallback_synthesis(summaries, query)
 
-                synthesis["detailed_analysis"] = {"sections": sections}
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse synthesis on attempt {attempt + 1}", error=str(e))
+                if attempt < 2:
+                    # Try with simpler prompt
+                    prompt = self._get_simpler_synthesis_prompt(summaries, query, attempt)
+                    continue
+                else:
+                    # Final attempt failed - use fallback
+                    logger.info("All synthesis attempts failed, using fallback")
+                    return self.generate_fallback_synthesis(summaries, query)
+            except Exception as e:
+                logger.error(f"Unexpected error in synthesis attempt {attempt + 1}", error=str(e))
+                if attempt < 2:
+                    continue
+                else:
+                    return self.generate_fallback_synthesis(summaries, query)
 
-            return synthesis
-
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse synthesis", error=str(e))
-            # Return a basic synthesis
-            return {
-                "executive_summary": "Research synthesis could not be generated.",
-                "key_findings": [],
-                "themes": [],
-                "contradictions": [],
-                "knowledge_gaps": [],
-                "recommendations": [],
-                "further_research": [],
-                "pull_quote": ""
-            }
+        # Should not reach here, but just in case
+        return self.generate_fallback_synthesis(summaries, query)
 
     async def generate_analysis_outline(
         self,
@@ -619,11 +871,21 @@ Research data from all sources:
 {summaries_text}
 
 Requirements:
-1. Write 2-3 comprehensive paragraphs (300-500 words total)
+1. Write 2-3 comprehensive paragraphs (300-500 words total) using **markdown formatting**
 2. Include specific details, data points, and examples from the sources
 3. Reference source numbers like [1], [2] when citing information
 4. Focus specifically on aspects related to "{section_title}"
 5. Make the content informative and analytical, not just descriptive
+
+**Formatting Guidelines:**
+- Use **bold** for key terms, important concepts, and critical findings
+- Use *italics* for emphasis, technical terms, or quotes
+- Use bullet points for lists of features, benefits, or key points
+- Use ### for sub-headings if the content naturally breaks into distinct topics
+- Use > for important callouts or quotes from sources
+- Maintain professional, magazine-style writing
+
+Return the content in **markdown format** for better readability and visual hierarchy.
 
 Section content:"""
 
@@ -710,15 +972,21 @@ Return ONLY the JSON:"""
 Section Title: {section_title}
 Section Content: {section_content[:500]}...
 
-If yes, create 1-2 subsection titles and brief content (1-2 paragraphs each).
+If yes, create 1-2 subsection titles and brief content (1-2 paragraphs each) using **markdown formatting**.
 If no subsections needed, respond with "NO_SUBSECTIONS".
+
+**Formatting Guidelines for Subsections:**
+- Use **bold** for key terms and important concepts
+- Use *italics* for emphasis and technical terms
+- Use bullet points for lists when appropriate
+- Maintain professional, magazine-style writing
 
 Format if subsections needed:
 SUBSECTION 1: [Title]
-[Content]
+[Markdown-formatted content]
 
 SUBSECTION 2: [Title]
-[Content]"""
+[Markdown-formatted content]"""
 
         try:
             response = await self.generate(prompt, temperature=0.5, max_tokens=600)

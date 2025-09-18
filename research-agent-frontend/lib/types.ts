@@ -53,9 +53,22 @@ export interface ResearchStatus {
 }
 
 export interface KeyFinding {
+  headline?: string;
   finding: string;
+  category?: 'primary' | 'secondary' | 'emerging' | 'consideration';
+  impact_score?: number;
   confidence: number;
   supporting_sources: number[];
+  statistics?: Record<string, string | number>;
+  keywords?: string[];
+}
+
+export interface MediaItem {
+  url: string;
+  type: 'image' | 'video' | 'youtube' | 'tiktok';
+  thumbnail?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface Source {
@@ -70,6 +83,7 @@ export interface Source {
     text: string;
     context: string;
   }>;
+  media?: MediaItem[];
 }
 
 export interface ResearchReport {
@@ -81,6 +95,7 @@ export interface ResearchReport {
     sources_used: number;
     processing_time_seconds: number;
     report_generated_at: string;
+    total_media_found?: number;
   };
   executive_summary: string;
   key_findings: KeyFinding[];
@@ -94,6 +109,13 @@ export interface ResearchReport {
   sources: Source[];
   related_topics?: string[];
   further_research?: string[];
+  featured_media?: MediaItem[];
+  pull_quote?: string;
+  themes?: Array<{
+    theme: string;
+    description: string;
+    sources: number[];
+  }>;
 }
 
 export interface SSEMessage {

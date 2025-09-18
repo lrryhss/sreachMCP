@@ -259,6 +259,83 @@ Provide a clear, concise summary that captures the key points and main ideas."""
             logger.error("Content summarization failed", error=str(e))
             return "Failed to generate summary."
 
+    async def reformat_executive_summary(self, raw_summary: str) -> str:
+        """Reformat an executive summary into HTML paragraphs
+
+        Args:
+            raw_summary: Raw executive summary text
+
+        Returns:
+            HTML formatted text with paragraph tags
+        """
+        prompt = f"""Convert the following text into exactly 3-4 HTML paragraphs. Output ONLY the HTML <p> tags with the content, nothing else.
+
+Text:
+{raw_summary}
+
+Output format (ONLY output tags like these, no other text):
+<p>First part of the text...</p>
+<p>Second part of the text...</p>
+<p>Third part of the text...</p>"""
+
+        system = "You are an HTML formatter. Output ONLY valid HTML paragraph tags. Never include any commentary, thinking, or wrapper text. Start your response with <p> and end with </p>."
+
+        try:
+            response = await self.generate(prompt, system=system, temperature=0.1, max_tokens=3000)
+
+            # Clean up the response
+            response = response.strip()
+
+            # Remove any HTML document wrapper if present
+            if '<!DOCTYPE' in response or '<html' in response:
+                # Extract just the paragraph content
+                import re
+                p_tags = re.findall(r'<p>.*?</p>', response, re.DOTALL)
+                if p_tags:
+                    response = '\n'.join(p_tags)
+
+            # Remove markdown code blocks if present
+            if response.startswith("```"):
+                lines = response.split('\n')
+                # Find where code block ends
+                end_index = len(lines)
+                for i in range(1, len(lines)):
+                    if lines[i].strip().startswith("```"):
+                        end_index = i
+                        break
+                response = '\n'.join(lines[1:end_index])
+
+            # Verify we have <p> tags
+            if '<p>' not in response:
+                # Fallback: Create HTML paragraphs from plain text
+                paragraphs = []
+                if '\n\n' in response:
+                    # Use existing paragraph breaks
+                    for para in response.split('\n\n'):
+                        if para.strip():
+                            paragraphs.append(f'<p>{para.strip()}</p>')
+                else:
+                    # Try to create paragraphs from sentences
+                    sentences = response.split('. ')
+                    if len(sentences) > 6:
+                        para_size = len(sentences) // 3
+                        for i in range(0, len(sentences), para_size):
+                            para = '. '.join(sentences[i:i+para_size])
+                            if para and not para.endswith('.'):
+                                para += '.'
+                            paragraphs.append(f'<p>{para.strip()}</p>')
+                    else:
+                        # Just wrap the whole thing
+                        paragraphs.append(f'<p>{response}</p>')
+                response = '\n'.join(paragraphs)
+
+            return response
+
+        except Exception as e:
+            logger.warning("Failed to reformat executive summary", error=str(e))
+            # Return original wrapped in a paragraph tag
+            return f'<p>{raw_summary}</p>'
+
     async def synthesize_research(
         self,
         summaries: List[Dict[str, str]],
@@ -287,10 +364,29 @@ Based on the following summaries from multiple sources, create a comprehensive r
 
 Provide your synthesis in JSON format with the following structure:
 {{
-    "executive_summary": "200-300 word executive summary",
+    "executive_summary": {{
+        "lead_paragraph": "2-3 sentence compelling opening that captures the essence of the research",
+        "body_paragraphs": [
+            "First main paragraph (3-4 sentences) covering primary findings",
+            "Second paragraph (3-4 sentences) covering secondary aspects",
+            "Third paragraph (3-4 sentences) covering implications or future directions"
+        ],
+        "pull_quote": "One powerful sentence that captures the key insight"
+    }},
     "key_findings": [
-        {{"finding": "Key finding 1", "confidence": 0.9, "sources": [1, 2]}},
-        {{"finding": "Key finding 2", "confidence": 0.8, "sources": [3, 4]}}
+        {{
+            "headline": "Brief 10-15 word headline capturing the essence",
+            "finding": "1-2 sentence detailed explanation of the finding with specifics",
+            "category": "primary|secondary|emerging|consideration",
+            "impact_score": 0.85,
+            "confidence": 0.9,
+            "supporting_sources": [1, 2],
+            "statistics": {{"key": "value", "metric": "number"}},
+            "keywords": ["keyword1", "keyword2"]
+        }},
+        // Generate 6-10 diverse findings across all categories
+        // Ensure at least 2-3 primary findings
+        // Include emerging trends and considerations
     ],
     "themes": [
         {{"theme": "Major theme 1", "description": "Description", "sources": [1, 2, 3]}}
@@ -300,8 +396,24 @@ Provide your synthesis in JSON format with the following structure:
     ],
     "knowledge_gaps": ["Gap 1", "Gap 2"],
     "recommendations": ["Recommendation 1", "Recommendation 2"],
-    "further_research": ["Topic 1", "Topic 2"]
+    "further_research": ["Topic 1", "Topic 2"],
+    "suggested_media_keywords": ["visual concept 1", "diagram type", "chart topic"]
 }}
+
+IMPORTANT:
+- The lead_paragraph should be engaging and journalistic
+- Each body paragraph should focus on a distinct aspect
+- Paragraphs should be complete and self-contained
+- The pull_quote should be memorable and impactful
+- Generate 6-10 key_findings with diverse categories (primary, secondary, emerging, consideration)
+- Each finding needs a concise headline (10-15 words) and detailed explanation (1-2 sentences)
+- Include statistics where available as key-value pairs
+- Category definitions:
+  * primary: Core, well-established findings with strong evidence
+  * secondary: Important but less central findings
+  * emerging: New or developing insights with growing evidence
+  * consideration: Important caveats, warnings, or limitations
+- Impact scores (0-1) represent the potential significance of the finding
 
 Return ONLY the JSON object."""
 
@@ -318,6 +430,16 @@ Return ONLY the JSON object."""
                 response = response[:-3]
 
             synthesis = json.loads(response.strip())
+
+            # Flatten executive_summary if it's in the new structured format
+            if isinstance(synthesis.get("executive_summary"), dict):
+                exec_summary = synthesis["executive_summary"]
+                # Combine paragraphs into formatted text
+                paragraphs = [exec_summary.get("lead_paragraph", "")]
+                paragraphs.extend(exec_summary.get("body_paragraphs", []))
+                synthesis["executive_summary"] = "\n\n".join(p for p in paragraphs if p)
+                synthesis["pull_quote"] = exec_summary.get("pull_quote", "")
+
             return synthesis
 
         except json.JSONDecodeError as e:
@@ -330,7 +452,8 @@ Return ONLY the JSON object."""
                 "contradictions": [],
                 "knowledge_gaps": [],
                 "recommendations": [],
-                "further_research": []
+                "further_research": [],
+                "pull_quote": ""
             }
 
     async def stream_generate(

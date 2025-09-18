@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import type { ResearchReport, KeyFinding, Source, MediaItem } from '@/lib/types';
 import { MediaPreview, MediaGallery } from './media-preview';
+import { EnhancedFindingCard } from './enhanced-finding-card';
+import { FindingsOverview } from './findings-overview';
 import styles from './research-results.module.css';
 
 interface ResearchResultsProps {
@@ -227,11 +229,24 @@ export function ResearchResults({ report, onExport }: ResearchResultsProps) {
 
         {/* Key Findings */}
         <TabsContent value="findings">
-          <div className="space-y-4">
-            {report.key_findings && Array.isArray(report.key_findings) ? (
-              report.key_findings.map((finding, index) => (
-                <FindingCard key={index} finding={finding} sources={report.sources || []} />
-              ))
+          <div className="space-y-6">
+            {report.key_findings && Array.isArray(report.key_findings) && report.key_findings.length > 0 ? (
+              <>
+                {/* Findings Overview Dashboard */}
+                <FindingsOverview findings={report.key_findings} />
+
+                {/* Findings Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {report.key_findings.map((finding, index) => (
+                    <EnhancedFindingCard
+                      key={index}
+                      finding={finding}
+                      sources={report.sources || []}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              </>
             ) : (
               <Card>
                 <CardContent className="pt-6">

@@ -35,6 +35,11 @@ services:
       - LOG_LEVEL=DEBUG
       - LOG_FORMAT=json
 
+      # Database Configuration
+      - DATABASE_URL=postgresql://research_user:research_pass_2024@postgres:5432/research_agent
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=40
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -47,6 +52,7 @@ services:
     restart: unless-stopped
     depends_on:
       - redis
+      - postgres
 
   redis:
     image: redis:7-alpine
@@ -59,6 +65,28 @@ services:
       - research-net
     restart: unless-stopped
     command: redis-server --appendonly yes
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: research-postgres
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=research_agent
+      - POSTGRES_USER=research_user
+      - POSTGRES_PASSWORD=research_pass_2024
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - research-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U research_user -d research_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -88,3 +116,4 @@ networks:
 
 volumes:
   redis-data:
+  postgres-data:

@@ -19,7 +19,7 @@ class OllamaConfig(BaseModel):
     """Ollama configuration"""
     model_config = ConfigDict(extra="ignore")
     base_url: str = Field(default="http://host.docker.internal:11434")
-    model: str = Field(default="gpt-oss:20b")
+    model: str = Field(default="qwen3:30b")
     timeout: int = Field(default=120)
     max_retries: int = Field(default=3)
     context_length: int = Field(default=8192)
@@ -76,6 +76,24 @@ class CacheConfig(BaseModel):
     report_ttl: int = Field(default=604800)  # 7 days
 
 
+class DatabaseConfig(BaseModel):
+    """Database configuration"""
+    model_config = ConfigDict(extra="ignore")
+    url: str = Field(default="postgresql://research_user:research_pass_2024@postgres:5432/research_agent")
+    pool_size: int = Field(default=20)
+    max_overflow: int = Field(default=40)
+    echo: bool = Field(default=False)
+
+
+class AuthConfig(BaseModel):
+    """Authentication configuration"""
+    model_config = ConfigDict(extra="ignore")
+    secret_key: str = Field(default="your-secret-key-change-this-in-production-" + os.urandom(16).hex())
+    algorithm: str = Field(default="HS256")
+    access_token_expire_minutes: int = Field(default=30)
+    refresh_token_expire_days: int = Field(default=7)
+
+
 class ServerConfig(BaseModel):
     """API server configuration"""
     model_config = ConfigDict(extra="ignore")
@@ -108,6 +126,8 @@ class Settings(BaseSettings):
     research: ResearchConfig = Field(default_factory=ResearchConfig)
     redis: RedisConfig = Field(default_factory=RedisConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    auth: AuthConfig = Field(default_factory=AuthConfig)
 
     # Logging
     log_level: str = Field(default="INFO")
@@ -140,6 +160,8 @@ class Settings(BaseSettings):
         settings.server.host = os.getenv("API_HOST", settings.server.host)
         settings.server.port = int(os.getenv("API_PORT", str(settings.server.port)))
         settings.log_level = os.getenv("LOG_LEVEL", settings.log_level)
+        settings.database.url = os.getenv("DATABASE_URL", settings.database.url)
+        settings.auth.secret_key = os.getenv("AUTH_SECRET_KEY", settings.auth.secret_key)
 
         return settings
 

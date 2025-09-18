@@ -16,6 +16,8 @@ from structlog import get_logger
 from .config import settings
 from .agent.orchestrator import ResearchOrchestrator
 from .services.report_generator import ReportGenerator
+from .database import db_manager
+from .api import auth
 
 # Use uvloop for better async performance
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -31,23 +33,28 @@ report_generator: Optional[ReportGenerator] = None
 async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
     global orchestrator, report_generator
-    
+
     logger.info("Starting Research Agent", version="1.0.0")
-    
+
+    # Initialize database
+    await db_manager.initialize()
+
     # Initialize components
     orchestrator = ResearchOrchestrator()
     report_generator = ReportGenerator()
-    
+
     # Health check for dependencies
     async with orchestrator.ollama_client as ollama:
         if not await ollama.health_check():
             logger.warning("Ollama not available", model=settings.ollama.model)
-    
+
     if not await orchestrator.search_client.health_check():
         logger.warning("MCP Search server not available")
-    
+
     yield
-    
+
+    # Cleanup
+    await db_manager.close()
     logger.info("Shutting down Research Agent")
 
 
@@ -67,6 +74,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth.router)
 
 
 # Request/Response Models

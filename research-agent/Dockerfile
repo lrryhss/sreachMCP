@@ -1,10 +1,11 @@
 # Multi-stage build for Research Agent
 FROM python:3.11-slim as builder
 
-# Install build dependencies
+# Install build dependencies including PostgreSQL client libs
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -19,10 +20,11 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # Final stage
 FROM python:3.11-slim
 
-# Install runtime dependencies
+# Install runtime dependencies including PostgreSQL client libs
 RUN apt-get update && apt-get install -y \
     curl \
     docker.io \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and add to docker group

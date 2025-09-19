@@ -278,12 +278,17 @@ class RAGService:
                        "Answer questions based on the provided context and conversation history. "
                        "IMPORTANT: When creating diagrams, ALWAYS use proper markdown code blocks with triple backticks. "
                        "For Mermaid diagrams: ```mermaid\n[diagram code]\n``` "
+                       "CRITICAL: Mermaid diagrams MUST be complete and syntactically valid. Never cut off mid-diagram. "
+                       "If a diagram would be too long, simplify it rather than truncating. "
                        "For other code: ```python\n[code]\n``` or ```javascript\n[code]\n``` etc. "
                        "Format tables using markdown pipe syntax: | Header | Header |\n|--------|--------|\n| Data | Data | "
                        "Cite sources when relevant using [Source: X] notation.",
-                max_tokens=1000,
+                max_tokens=8000,  # Can safely use more with 128K context window
                 temperature=0.7
             )
+
+            # Validate and fix incomplete mermaid blocks
+            response = self._validate_mermaid_blocks(response)
 
             return {
                 "type": "complete",
@@ -294,6 +299,37 @@ class RAGService:
                     "timestamp": datetime.utcnow().isoformat()
                 }
             }
+
+    def _validate_mermaid_blocks(self, content: str) -> str:
+        """
+        Validate and fix incomplete mermaid blocks in the response
+        """
+        import re
+
+        # Find all mermaid blocks
+        pattern = r'```mermaid\n(.*?)(?:```|$)'
+        matches = re.findall(pattern, content, re.DOTALL)
+
+        for match in matches:
+            # Check if the block seems incomplete (doesn't have proper closing)
+            lines = match.strip().split('\n')
+            if lines and not match.strip().endswith('}') and not match.strip().endswith(')'):
+                # The mermaid block is likely truncated
+                # Replace with an error message
+                old_block = f"```mermaid\n{match}"
+                if not old_block.endswith('```'):
+                    old_block += '```' if content.find(old_block + '```') == -1 else ''
+
+                new_block = f"```mermaid\ngraph TD\n    A[Diagram was truncated] --> B[Please ask for a simpler version]\n```"
+                content = content.replace(old_block, new_block)
+
+        # Ensure all code blocks are properly closed
+        open_blocks = content.count('```mermaid')
+        close_blocks = content.count('```', content.find('```mermaid') if '```mermaid' in content else 0)
+        if open_blocks > 0 and close_blocks < open_blocks * 2:
+            content += '\n```'  # Add missing closing backticks
+
+        return content
 
     async def _build_prompt(
         self,
@@ -338,10 +374,12 @@ class RAGService:
                    "Answer questions based on the provided context and conversation history. "
                    "IMPORTANT: When creating diagrams, ALWAYS use proper markdown code blocks with triple backticks. "
                    "For Mermaid diagrams: ```mermaid\n[diagram code]\n``` "
+                   "CRITICAL: Mermaid diagrams MUST be complete and syntactically valid. Never cut off mid-diagram. "
+                   "If a diagram would be too long, simplify it rather than truncating. "
                    "For other code: ```python\n[code]\n``` or ```javascript\n[code]\n``` etc. "
                    "Format tables using markdown pipe syntax: | Header | Header |\n|--------|--------|\n| Data | Data | "
                    "Cite sources when relevant using [Source: X] notation.",
-            max_tokens=1000,
+            max_tokens=2500,  # Increased for longer diagrams
             temperature=0.7
         ):
             yield chunk

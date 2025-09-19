@@ -50,33 +50,45 @@ function sanitizeMermaidContent(content: string): string {
         return line.substring(0, commentIndex).trim();
       }
       return line;
-    })
-    .filter(line => line.trim() !== ''); // Remove empty lines
-
-  const cleanedContent = filteredLines.join('\n');
-
-  return cleanedContent
-    // Replace non-breaking hyphens with regular hyphens
-    .replace(/[\u2010-\u2015]/g, '-')
-    // Replace non-breaking spaces
-    .replace(/\u00A0/g, ' ')
-    // Replace smart quotes with regular quotes
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    // Replace ellipsis
-    .replace(/\u2026/g, '...')
-    // Remove zero-width spaces
-    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
-    // Replace em dashes and en dashes
-    .replace(/[\u2013\u2014]/g, '--')
-    // Clean up any other non-ASCII characters in labels
-    .replace(/[^\x00-\x7F]/g, (char) => {
-      // Keep common accented characters
-      if (/[àáäâèéëêìíïîòóöôùúüûñçÀÁÄÂÈÉËÊÌÍÏÎÒÓÖÔÙÚÜÛÑÇ]/.test(char)) {
-        return char;
-      }
-      return '';
     });
+
+  let cleanedContent = filteredLines.join('\n');
+
+  // Replace all problematic Unicode characters
+  cleanedContent = cleanedContent
+    // Replace all types of dashes with regular hyphen
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2E3A\u2E3B]/g, '-')
+    // Replace non-breaking spaces
+    .replace(/[\u00A0\u2007\u202F]/g, ' ')
+    // Replace smart quotes with regular quotes
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    // Replace ellipsis
+    .replace(/[\u2026]/g, '...')
+    // Remove zero-width spaces and other invisible characters
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '')
+    // Replace various types of spaces with regular space
+    .replace(/[\u2000-\u200A]/g, ' ')
+    // Clean up any remaining non-ASCII characters
+    .replace(/[^\x20-\x7E\n]/g, '');
+
+  // Clean up excessive blank lines (keep max 1 blank line)
+  cleanedContent = cleanedContent.replace(/\n{3,}/g, '\n\n');
+
+  // Ensure no trailing/leading whitespace on lines
+  cleanedContent = cleanedContent
+    .split('\n')
+    .map(line => line.trim())
+    .filter((line, index, array) => {
+      // Remove empty lines at start and end
+      if ((index === 0 || index === array.length - 1) && line === '') {
+        return false;
+      }
+      return true;
+    })
+    .join('\n');
+
+  return cleanedContent;
 }
 
 interface MessageRendererProps {

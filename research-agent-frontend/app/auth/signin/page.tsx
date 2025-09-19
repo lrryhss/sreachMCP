@@ -23,6 +23,15 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Demo account for testing
+  const useDemoAccount = () => {
+    setCredentials({
+      username_or_email: "demo@example.com",
+      password: "demo123456",
+    })
+    setError(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -105,6 +114,15 @@ export default function SignInPage() {
                   Sign In
                 </>
               )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={useDemoAccount}
+              disabled={loading}
+            >
+              Use Demo Account
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{" "}

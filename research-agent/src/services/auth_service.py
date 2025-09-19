@@ -1,6 +1,6 @@
 """Authentication service for Research Agent"""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import secrets
 
@@ -40,9 +40,9 @@ class AuthService:
         """Create a JWT access token"""
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + self.access_token_expire
+            expire = datetime.now(timezone.utc) + self.access_token_expire
 
         to_encode.update({"exp": expire, "type": "access"})
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -51,7 +51,7 @@ class AuthService:
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
         """Create a JWT refresh token"""
         to_encode = data.copy()
-        expire = datetime.utcnow() + self.refresh_token_expire
+        expire = datetime.now(timezone.utc) + self.refresh_token_expire
         to_encode.update({"exp": expire, "type": "refresh", "jti": secrets.token_hex(16)})
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
@@ -98,7 +98,7 @@ class AuthService:
         )
 
         # Calculate expiration
-        expires_at = datetime.utcnow() + self.access_token_expire
+        expires_at = datetime.now(timezone.utc) + self.access_token_expire
 
         # Store session in database
         await db_service.sessions.create(
@@ -135,7 +135,7 @@ class AuthService:
             return None
 
         # Check if session is expired
-        if session.expires_at < datetime.utcnow():
+        if session.expires_at < datetime.now(timezone.utc):
             return None
 
         return session.user

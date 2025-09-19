@@ -254,10 +254,14 @@ async def update_profile(
     )
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
-    current_password: str,
-    new_password: str = Field(..., min_length=8, max_length=100),
+    request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
@@ -265,14 +269,14 @@ async def change_password(
     db_service = DatabaseService(session)
 
     # Verify current password
-    if not auth_service.verify_password(current_password, current_user.password_hash):
+    if not auth_service.verify_password(request.current_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
         )
 
     # Hash new password
-    new_password_hash = auth_service.hash_password(new_password)
+    new_password_hash = auth_service.hash_password(request.new_password)
 
     # Update password
     await db_service.users.update(

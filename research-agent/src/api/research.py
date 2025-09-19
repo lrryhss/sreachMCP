@@ -146,8 +146,8 @@ async def create_research(
         id=str(task.id),
         task_id=task.task_id,
         query=task.query,
-        status=task.status.value,
-        depth=task.depth.value,
+        status=task.status,
+        depth=task.depth,
         max_sources=task.max_sources,
         progress=task.progress,
         created_at=task.created_at,
@@ -307,8 +307,8 @@ async def get_research_task(
         id=str(task.id),
         task_id=task.task_id,
         query=task.query,
-        status=task.status.value,
-        depth=task.depth.value,
+        status=task.status,
+        depth=task.depth,
         max_sources=task.max_sources,
         progress=task.progress,
         created_at=task.created_at,
@@ -316,6 +316,16 @@ async def get_research_task(
         completed_at=task.completed_at,
         error_message=task.error_message
     )
+
+
+@router.get("/{task_id}/status", response_model=ResearchResponse)
+async def get_research_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """Get research task status"""
+    return await get_research_task(task_id, current_user, session)
 
 
 @router.get("/{task_id}/result", response_model=ResearchResultResponse)
@@ -367,7 +377,7 @@ async def get_research_result(
         sources=task.result.sources,
         query_analysis=task.result.query_analysis,
         detailed_analysis=task.result.detailed_analysis,
-        metadata=task.result.metadata
+        metadata=task.result.result_metadata
     )
 
 
@@ -415,7 +425,7 @@ async def get_research_report(
         "sources": task.result.sources,
         "query_analysis": task.result.query_analysis,
         "detailed_analysis": task.result.detailed_analysis,
-        "metadata": task.result.metadata,
+        "metadata": task.result.result_metadata,
         "sources_used": task.result.sources_used
     }
 

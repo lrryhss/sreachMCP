@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine
 )
 from sqlalchemy.pool import NullPool
+from sqlalchemy import text
 from structlog import get_logger
 
 from ..config import settings
@@ -53,7 +54,7 @@ class DatabaseManager:
 
             # Test connection
             async with self.engine.begin() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
 
             self._initialized = True
             logger.info("Database initialized successfully")

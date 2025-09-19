@@ -24,6 +24,7 @@ import { MediaPreview, MediaGallery } from './media-preview';
 import { EnhancedFindingCard } from './enhanced-finding-card';
 import { FindingsOverview } from './findings-overview';
 import { DetailedAnalysisView } from './detailed-analysis-view';
+import { HeroSummary } from './hero-summary';
 import styles from './research-results.module.css';
 
 interface ResearchResultsProps {
@@ -95,137 +96,7 @@ export function ResearchResults({ report, onExport }: ResearchResultsProps) {
 
         {/* Executive Summary */}
         <TabsContent value="summary">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Executive Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Article-style Executive Summary */}
-              <article className="prose prose-lg dark:prose-invert max-w-none">
-                <div className="space-y-6">
-                  {(() => {
-                    const summary = report.executive_summary || '';
-
-                    // Helper function to unescape HTML entities
-                    const unescapeHTML = (str: string): string => {
-                      const textArea = document.createElement('textarea');
-                      textArea.innerHTML = str;
-                      return textArea.value;
-                    };
-
-                    // Check if summary contains HTML tags (as text strings or actual HTML)
-                    const hasHTMLTagStrings = summary.includes('<p>') || summary.includes('</p>');
-                    const hasEscapedHTML = summary.includes('&lt;p&gt;') || summary.includes('&lt;/p&gt;');
-
-                    // Always treat content with <p> tags as HTML that needs rendering
-                    // The content might be coming as plain text with HTML tag strings
-                    const isHTML = hasHTMLTagStrings || hasEscapedHTML;
-
-                    // Debug logging
-                    console.log('Executive Summary Debug:', {
-                      summaryLength: summary.length,
-                      first100Chars: summary.substring(0, 100),
-                      hasHTMLTagStrings,
-                      hasEscapedHTML,
-                      isHTML,
-                      summaryType: typeof summary
-                    });
-
-                    // Process the summary to ensure it's ready for HTML rendering
-                    const processedSummary = isHTML ? summary : summary;
-
-                    if (isHTML) {
-                      // Render HTML directly with styling
-                      return (
-                        <>
-                          {/* Featured media after first paragraph */}
-                          {report.featured_media?.length > 0 && (
-                            <div className="my-8">
-                              <MediaGallery media={report.featured_media.slice(0, 2)} className="mb-6" />
-                            </div>
-                          )}
-                          <div
-                            className={styles.executiveSummaryHtml}
-                            dangerouslySetInnerHTML={{ __html: processedSummary }}
-                          />
-                        </>
-                      );
-                    } else {
-                      // Fallback to text-based paragraph splitting
-                      const paragraphs = summary.includes('\n\n')
-                        ? summary.split('\n\n').filter(p => p.trim())
-                        : [summary];
-
-                      return paragraphs.map((paragraph, index) => {
-                        // First paragraph gets special treatment
-                        if (index === 0) {
-                          return (
-                            <p key={`para-${index}`} className="text-xl leading-relaxed font-serif first-letter:text-5xl first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-primary">
-                              {paragraph}
-                            </p>
-                          );
-                        }
-
-                        // Check if we should insert media after first paragraph
-                        const mediaAfterFirst = index === 1 && report.featured_media?.length > 0;
-
-                        return (
-                          <div key={`para-group-${index}`}>
-                            {mediaAfterFirst && (
-                              <div className="my-8">
-                                <MediaGallery media={report.featured_media.slice(0, 2)} className="mb-6" />
-                              </div>
-                            )}
-                            <p className="text-base leading-[1.7] text-muted-foreground">
-                              {paragraph}
-                            </p>
-                          </div>
-                        );
-                      });
-                    }
-                  })()}
-
-                  {/* Pull Quote if available */}
-                  {report.pull_quote && (
-                    <blockquote className="border-l-4 border-primary pl-6 py-2 my-8 italic text-lg font-medium">
-                      "{report.pull_quote}"
-                    </blockquote>
-                  )}
-                </div>
-              </article>
-
-              {/* Additional Media Gallery if more than 2 items */}
-              {report.featured_media && report.featured_media.length > 2 && (
-                <div className="border-t pt-6">
-                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Additional Visual Content
-                  </h4>
-                  <MediaGallery media={report.featured_media.slice(2)} />
-                </div>
-              )}
-
-              {/* Related Topics */}
-              {report.related_topics && report.related_topics.length > 0 && (
-                <div className="border-t pt-6">
-                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <Quote className="h-4 w-4" />
-                    Related Topics
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {report.related_topics.map((topic, index) => (
-                      <Badge key={index} variant="secondary" className="px-3 py-1">
-                        {topic}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <HeroSummary report={report} />
         </TabsContent>
 
         {/* Key Findings */}

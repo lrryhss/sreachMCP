@@ -59,3 +59,9 @@ searxng/
 *.tmp
 *.bak
 *.backup
+
+# Node.js
+node_modules/
+
+# Playwright screenshots
+.playwright-mcp/

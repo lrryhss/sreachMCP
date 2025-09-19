@@ -1,19 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { ResearchForm } from '@/components/research/research-form';
 import { ResearchProgress } from '@/components/research/research-progress';
 import { ResearchResults } from '@/components/research/research-results';
 import { useResearch, useResearchHistory } from '@/hooks/use-research';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomePage() {
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const { startResearch, status, report, cancelResearch, liveProgress } = useResearch(currentTaskId || undefined);
   const { addToHistory } = useResearchHistory();
+
+  // Redirect to signin if not authenticated (backup, middleware should handle this)
+  useEffect(() => {
+    if (sessionStatus === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [sessionStatus, router]);
+
+  // Show loading while checking auth
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   const handleSubmit = async (values: any) => {
     try {

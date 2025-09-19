@@ -260,7 +260,7 @@ class ResearchResultRepository:
             sources=sources,
             query_analysis=query_analysis,
             detailed_analysis=detailed_analysis,
-            metadata=metadata,
+            result_metadata=metadata,
             featured_media=featured_media,
             sources_used=sources_used or len(sources)
         )

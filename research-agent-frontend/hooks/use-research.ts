@@ -25,6 +25,9 @@ export function useResearch(taskId?: string) {
     refetchInterval: (data) => {
       // Stop polling if completed or failed
       if (data?.status === 'completed' || data?.status === 'failed') {
+        // Invalidate cache to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ['research-status', taskId] });
+        queryClient.invalidateQueries({ queryKey: ['research-report', taskId] });
         return false;
       }
       return 2000; // Poll every 2 seconds

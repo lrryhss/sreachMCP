@@ -171,7 +171,7 @@ class ContentFetcher:
                 output_format="dict"
             )
 
-            if extracted and extracted.get("text"):
+            if extracted and isinstance(extracted, dict) and extracted.get("text"):
                 # Also try to extract media from the HTML
                 soup = BeautifulSoup(html, "html.parser")
                 media = self._extract_media(soup, url)

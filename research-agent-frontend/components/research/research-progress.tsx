@@ -72,8 +72,14 @@ export function ResearchProgress({ status, liveProgress, onCancel }: ResearchPro
   ];
 
   const getStepStatus = (step: string) => {
-    if (status.progress.steps_completed.includes(step)) return 'completed';
-    if (status.progress.current_step === step) return 'current';
+    const stepIndex = allSteps.indexOf(step);
+    const progressPercent = status.progress || 0;
+
+    // Each step represents roughly 1/allSteps.length of the progress
+    const stepProgress = (stepIndex + 1) * (100 / allSteps.length);
+
+    if (progressPercent >= stepProgress) return 'completed';
+    if (progressPercent > (stepIndex * (100 / allSteps.length))) return 'current';
     return 'pending';
   };
 
@@ -110,9 +116,9 @@ export function ResearchProgress({ status, liveProgress, onCancel }: ResearchPro
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Overall Progress</span>
-            <span>{status.progress.percentage}%</span>
+            <span>{status.progress}%</span>
           </div>
-          <Progress value={status.progress.percentage} className="h-2" />
+          <Progress value={status.progress} className="h-2" />
         </div>
 
         {/* Step indicators */}
@@ -151,23 +157,7 @@ export function ResearchProgress({ status, liveProgress, onCancel }: ResearchPro
           })}
         </div>
 
-        {/* Source statistics */}
-        {(status.progress.sources_found !== undefined || status.progress.sources_processed !== undefined) && (
-          <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-            {status.progress.sources_found !== undefined && (
-              <div>
-                <div className="text-2xl font-bold">{status.progress.sources_found}</div>
-                <div className="text-sm text-muted-foreground">Sources Found</div>
-              </div>
-            )}
-            {status.progress.sources_processed !== undefined && (
-              <div>
-                <div className="text-2xl font-bold">{status.progress.sources_processed}</div>
-                <div className="text-sm text-muted-foreground">Sources Processed</div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Source statistics - removed as progress is now just a number, not an object */}
 
         {/* Live updates */}
         {liveProgress && liveProgress.type === 'source_found' && (

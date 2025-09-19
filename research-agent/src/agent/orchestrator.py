@@ -82,6 +82,14 @@ class ResearchOrchestrator:
         Returns:
             Research results
         """
+        # Step timeouts based on depth
+        timeouts = {
+            "quick": {"analysis": 30, "search": 60, "fetch": 120, "synthesis": 300},
+            "standard": {"analysis": 60, "search": 120, "fetch": 300, "synthesis": 600},
+            "comprehensive": {"analysis": 120, "search": 180, "fetch": 600, "synthesis": 900}
+        }
+        step_timeouts = timeouts.get(depth, timeouts["standard"])
+
         # Generate task ID if not provided
         if not task_id:
             task_id = f"res_{uuid.uuid4().hex[:12]}"
@@ -95,63 +103,129 @@ class ResearchOrchestrator:
                 "progress": 0,
                 "created_at": datetime.utcnow().isoformat(),
                 "steps_completed": [],
-                "current_step": "initializing"
+                "current_step": "initializing",
+                "errors": [],
+                "warnings": []
             }
+
+        query_analysis = None
+        all_search_results = {}
+        unique_urls = []
+        prioritized_contents = []
 
         try:
             logger.info("Starting research", task_id=task_id, query=query, depth=depth)
 
-            # Step 1: Analyze query
+            # Step 1: Analyze query with timeout and retry
             await self.update_task_status(task_id, ResearchStatus.ANALYZING, 10, "query_analysis")
-            async with self.ollama_client as ollama:
-                query_analysis = await ollama.analyze_query(query)
+            try:
+                async with self.ollama_client as ollama:
+                    query_analysis = await asyncio.wait_for(
+                        ollama.analyze_query(query),
+                        timeout=step_timeouts["analysis"]
+                    )
+                logger.info("Query analyzed", task_id=task_id, strategies=len(query_analysis.get("search_strategies", [])))
+                self.tasks[task_id]["steps_completed"].append("query_analysis")
+            except asyncio.TimeoutError:
+                error_msg = f"Query analysis timed out after {step_timeouts['analysis']}s"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Fallback to simple query
+                query_analysis = {"search_strategies": [query], "query_type": "simple"}
+            except Exception as e:
+                error_msg = f"Query analysis failed: {str(e)}"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Fallback to simple query
+                query_analysis = {"search_strategies": [query], "query_type": "simple"}
 
-            logger.info("Query analyzed", task_id=task_id, strategies=len(query_analysis.get("search_strategies", [])))
-
-            # Step 2: Execute searches
+            # Step 2: Execute searches with timeout and error handling
             await self.update_task_status(task_id, ResearchStatus.SEARCHING, 25, "search_execution")
             search_strategies = query_analysis.get("search_strategies", [query])[:3]
-            all_search_results = await self.search_client.batch_search(
-                queries=search_strategies,
-                limit_per_query=10
-            )
 
-            # Collect all URLs
-            all_urls = []
-            for query_results in all_search_results.values():
-                urls = self.search_client.extract_urls_from_results({"results": query_results})
-                all_urls.extend(urls)
+            try:
+                all_search_results = await asyncio.wait_for(
+                    self.search_client.batch_search(
+                        queries=search_strategies,
+                        limit_per_query=10
+                    ),
+                    timeout=step_timeouts["search"]
+                )
 
-            # Deduplicate URLs
-            unique_urls = list(dict.fromkeys(all_urls))[:max_sources]
-            logger.info("URLs collected", task_id=task_id, total_urls=len(all_urls), unique_urls=len(unique_urls))
+                # Collect all URLs
+                all_urls = []
+                for query_results in all_search_results.values():
+                    urls = self.search_client.extract_urls_from_results({"results": query_results})
+                    all_urls.extend(urls)
 
-            if not unique_urls:
-                raise ValueError("No URLs found from search results")
+                # Deduplicate URLs
+                unique_urls = list(dict.fromkeys(all_urls))[:max_sources]
+                logger.info("URLs collected", task_id=task_id, total_urls=len(all_urls), unique_urls=len(unique_urls))
 
-            # Step 3: Fetch content
+                if unique_urls:
+                    self.tasks[task_id]["steps_completed"].append("search")
+                else:
+                    raise ValueError("No URLs found from search results")
+
+            except asyncio.TimeoutError:
+                error_msg = f"Search timed out after {step_timeouts['search']}s"
+                logger.error(error_msg, task_id=task_id)
+                self.tasks[task_id]["errors"].append(error_msg)
+                raise ValueError(f"Search operation failed: {error_msg}")
+            except Exception as e:
+                error_msg = f"Search failed: {str(e)}"
+                logger.error(error_msg, task_id=task_id)
+                self.tasks[task_id]["errors"].append(error_msg)
+                raise ValueError(f"Search operation failed: {error_msg}")
+
+            # Step 3: Fetch content with timeout and graceful degradation
             await self.update_task_status(task_id, ResearchStatus.FETCHING, 50, "content_fetching")
-            async with self.content_fetcher as fetcher:
-                contents = await fetcher.batch_fetch(unique_urls)
+            contents = []
+            valid_contents = []
 
-                # Filter and prioritize content
-                valid_contents = [c for c in contents if c.get("text")]
-                prioritized_contents = fetcher.prioritize_content(valid_contents, max_sources)
+            try:
+                async with self.content_fetcher as fetcher:
+                    contents = await asyncio.wait_for(
+                        fetcher.batch_fetch(unique_urls),
+                        timeout=step_timeouts["fetch"]
+                    )
 
-            logger.info(
-                "Content fetched",
-                task_id=task_id,
-                fetched=len(contents),
-                valid=len(valid_contents),
-                used=len(prioritized_contents)
-            )
+                    # Filter and prioritize content
+                    valid_contents = [c for c in contents if c.get("text")]
+                    prioritized_contents = fetcher.prioritize_content(valid_contents, max_sources)
+
+                logger.info(
+                    "Content fetched",
+                    task_id=task_id,
+                    fetched=len(contents),
+                    valid=len(valid_contents),
+                    used=len(prioritized_contents)
+                )
+
+                if prioritized_contents:
+                    self.tasks[task_id]["steps_completed"].append("content_fetch")
+                else:
+                    logger.warning("No valid content fetched", task_id=task_id)
+
+            except asyncio.TimeoutError:
+                error_msg = f"Content fetching timed out after {step_timeouts['fetch']}s"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                prioritized_contents = []
+            except Exception as e:
+                error_msg = f"Content fetching failed: {str(e)}"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                prioritized_contents = []
 
             # If no content could be fetched, use search snippets as fallback
             if not prioritized_contents:
-                logger.warning("No content fetched, using search snippets as fallback")
+                logger.warning("No content fetched, using search snippets as fallback", task_id=task_id)
                 prioritized_contents = self._create_content_from_search_results(
                     all_search_results, unique_urls, max_sources
                 )
+                if not prioritized_contents:
+                    raise ValueError("No content available from either fetching or search snippets")
 
             # Step 4: Summarize individual sources and collect media
             await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, 70, "content_synthesis")
@@ -186,35 +260,58 @@ class ResearchOrchestrator:
                         "media": content.get("media", [])[:2]  # Keep first 2 media items per source
                     })
 
-            # Step 5: Synthesize research
+            # Step 5: Synthesize research with timeout and error handling
             await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, 85, "research_synthesis")
-            async with self.ollama_client as ollama:
-                synthesis = await ollama.synthesize_research(summaries, query)
+            synthesis = None
 
-                # Validate and repair the synthesis
-                synthesis = self._validate_and_repair_synthesis(synthesis, summaries, query)
+            try:
+                async with self.ollama_client as ollama:
+                    synthesis = await asyncio.wait_for(
+                        ollama.synthesize_research(summaries, query),
+                        timeout=step_timeouts["synthesis"]
+                    )
 
-                # Debug logging
-                logger.info(f"Synthesis type: {type(synthesis)}, has executive_summary: {'executive_summary' in synthesis}")
-                if "executive_summary" in synthesis:
-                    logger.info(f"Executive summary type: {type(synthesis['executive_summary'])}, length: {len(str(synthesis['executive_summary']))}")
+                    # Validate and repair the synthesis
+                    synthesis = self._validate_and_repair_synthesis(synthesis, summaries, query)
 
-                # Reformat executive summary if it's a plain string
-                if isinstance(synthesis.get("executive_summary"), str) and synthesis["executive_summary"]:
-                    logger.info("Reformatting executive summary for better readability")
-                    try:
-                        # Get markdown formatted text with paragraph breaks
-                        formatted_text = await ollama.reformat_executive_summary(synthesis["executive_summary"])
+                    # Debug logging
+                    logger.info(f"Synthesis type: {type(synthesis)}, has executive_summary: {'executive_summary' in synthesis}")
+                    if "executive_summary" in synthesis:
+                        logger.info(f"Executive summary type: {type(synthesis['executive_summary'])}, length: {len(str(synthesis['executive_summary']))}")
 
-                        # Replace the executive summary with formatted version
-                        synthesis["executive_summary"] = formatted_text
+                    # Reformat executive summary if it's a plain string
+                    if isinstance(synthesis.get("executive_summary"), str) and synthesis["executive_summary"]:
+                        logger.info("Reformatting executive summary for better readability")
+                        try:
+                            # Get markdown formatted text with paragraph breaks
+                            formatted_text = await asyncio.wait_for(
+                                ollama.reformat_executive_summary(synthesis["executive_summary"]),
+                                timeout=60  # Short timeout for reformatting
+                            )
 
-                        logger.info("Executive summary reformatted successfully")
-                    except Exception as e:
-                        logger.warning("Failed to reformat executive summary", error=str(e))
-                        # Keep original if reformatting fails
+                            # Replace the executive summary with formatted version
+                            synthesis["executive_summary"] = formatted_text
+                            logger.info("Executive summary reformatted successfully")
+                        except Exception as e:
+                            logger.warning("Failed to reformat executive summary", error=str(e))
+                            # Keep original if reformatting fails
 
-            # Generate detailed analysis using multi-step approach (outside the context manager)
+                self.tasks[task_id]["steps_completed"].append("synthesis")
+
+            except asyncio.TimeoutError:
+                error_msg = f"Synthesis timed out after {step_timeouts['synthesis']}s"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Create minimal synthesis as fallback
+                synthesis = self._create_fallback_synthesis(summaries, query)
+            except Exception as e:
+                error_msg = f"Synthesis failed: {str(e)}"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Create minimal synthesis as fallback
+                synthesis = self._create_fallback_synthesis(summaries, query)
+
+            # Generate detailed analysis using multi-step approach with timeout
             logger.info("Starting multi-step detailed analysis generation")
 
             # Create progress callback for detailed analysis
@@ -222,18 +319,28 @@ class ResearchOrchestrator:
                 await self.update_task_status(task_id, ResearchStatus.SYNTHESIZING, progress, step)
 
             try:
-                # Call multi-step analysis directly without context manager
-                # The client manages its own persistent session
-                detailed_analysis = await self.ollama_client.generate_detailed_analysis_multistep(
-                    summaries=summaries,
-                    query=query,
-                    progress_callback=analysis_progress
+                # Call multi-step analysis with timeout
+                detailed_analysis = await asyncio.wait_for(
+                    self.ollama_client.generate_detailed_analysis_multistep(
+                        summaries=summaries,
+                        query=query,
+                        progress_callback=analysis_progress
+                    ),
+                    timeout=step_timeouts["synthesis"] // 2  # Half the synthesis timeout for detailed analysis
                 )
                 synthesis["detailed_analysis"] = detailed_analysis
                 logger.info(f"Generated detailed analysis with {len(detailed_analysis.get('sections', []))} sections")
+                self.tasks[task_id]["steps_completed"].append("detailed_analysis")
+            except asyncio.TimeoutError:
+                error_msg = f"Detailed analysis timed out after {step_timeouts['synthesis'] // 2}s"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Synthesis continues without detailed analysis
             except Exception as e:
-                logger.warning("Failed to generate multi-step detailed analysis", error=str(e))
-                # Fallback is already handled in ollama_client.py
+                error_msg = f"Failed to generate detailed analysis: {str(e)}"
+                logger.warning(error_msg, task_id=task_id)
+                self.tasks[task_id]["warnings"].append(error_msg)
+                # Synthesis continues without detailed analysis
 
             # Select featured media (top 5 unique items, prioritizing images)
             featured_media = []
@@ -286,9 +393,20 @@ class ResearchOrchestrator:
             return results
 
         except Exception as e:
-            logger.error("Research failed", task_id=task_id, error=str(e))
+            # Enhanced error logging with context
+            error_context = {
+                "task_id": task_id,
+                "error": str(e),
+                "completed_steps": self.tasks[task_id].get("steps_completed", []),
+                "warnings": self.tasks[task_id].get("warnings", []),
+                "errors": self.tasks[task_id].get("errors", []),
+                "progress": self.tasks[task_id].get("progress", 0)
+            }
+            logger.error("Research failed", **error_context)
+
             await self.update_task_status(task_id, ResearchStatus.FAILED, self.tasks[task_id]["progress"], "error")
             self.tasks[task_id]["error"] = str(e)
+            self.tasks[task_id]["errors"].append(f"Fatal error: {str(e)}")
             raise
 
     def _create_content_from_search_results(
@@ -584,6 +702,65 @@ class ResearchOrchestrator:
 
         logger.info("Synthesis validation and repair completed")
         return synthesis
+
+    def _create_fallback_synthesis(self, summaries: List[Dict[str, Any]], query: str) -> Dict[str, Any]:
+        """Create a fallback synthesis when AI synthesis fails
+
+        Args:
+            summaries: List of source summaries
+            query: Original research query
+
+        Returns:
+            Basic synthesis structure
+        """
+        logger.info("Creating fallback synthesis", query=query, sources=len(summaries))
+
+        # Create basic executive summary from source summaries
+        if summaries:
+            key_points = []
+            for i, summary in enumerate(summaries[:5]):  # Use top 5 sources
+                if summary.get("summary"):
+                    key_points.append(f"{i+1}. {summary['summary'][:200]}...")
+
+            executive_summary = (
+                f"Research on '{query}' reveals the following key findings:\n\n" +
+                "\n".join(key_points) +
+                "\n\nThis analysis is based on available sources and may be incomplete due to processing limitations."
+            )
+        else:
+            executive_summary = f"Unable to generate comprehensive analysis for '{query}' due to limited source availability."
+
+        # Create basic fallback synthesis
+        fallback_synthesis = {
+            "executive_summary": executive_summary,
+            "key_findings": [
+                f"Analysis of {len(summaries)} sources related to '{query}'",
+                "Findings may be limited due to processing constraints",
+                "Further research recommended for comprehensive understanding"
+            ],
+            "implications": [
+                "Results should be verified with additional sources",
+                "Professional consultation recommended for critical decisions"
+            ],
+            "further_research": [
+                f"Expand search scope for '{query}'",
+                "Consult domain experts",
+                "Review additional academic sources"
+            ],
+            "pull_quote": executive_summary[:150] + "..." if len(executive_summary) > 150 else executive_summary,
+            "detailed_analysis": {
+                "sections": [
+                    {
+                        "title": "Research Summary",
+                        "content": executive_summary,
+                        "sources": list(range(1, min(len(summaries) + 1, 6)))
+                    }
+                ]
+            }
+        }
+
+        logger.info("Fallback synthesis created successfully")
+        return fallback_synthesis
 
     async def _update_database_task_status(self, task_id: str, status: ResearchStatus, progress: int) -> None:
         """Update task status in database if available"""

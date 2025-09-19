@@ -7,6 +7,8 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { ApiProvider } from "@/components/providers/api-provider";
+import { AuthMonitor } from "@/components/providers/auth-monitor";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,8 +32,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <Providers>
-              <SidebarProvider>
+            <ApiProvider>
+              <AuthMonitor>
+                <Providers>
+                  <SidebarProvider>
               <div className="flex h-screen w-full">
                 <AppSidebar />
                 <SidebarInset className="flex-1 overflow-hidden">
@@ -50,8 +54,10 @@ export default function RootLayout({
                   </main>
                 </SidebarInset>
               </div>
-            </SidebarProvider>
-          </Providers>
+                  </SidebarProvider>
+                </Providers>
+              </AuthMonitor>
+            </ApiProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

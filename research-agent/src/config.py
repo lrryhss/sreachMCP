@@ -90,7 +90,7 @@ class AuthConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     secret_key: str = Field(default="your-secret-key-change-this-in-production-" + os.urandom(16).hex())
     algorithm: str = Field(default="HS256")
-    access_token_expire_minutes: int = Field(default=30)
+    access_token_expire_minutes: int = Field(default=120)  # Extended from 30 to 120 minutes for better dev experience
     refresh_token_expire_days: int = Field(default=7)
 
 

@@ -43,8 +43,8 @@ export interface ResearchProgress {
 
 export interface ResearchStatus {
   task_id: string;
-  status: ResearchStatus;
-  progress: ResearchProgress;
+  status: string;  // Fixed: changed from ResearchStatus to string
+  progress: number;  // Changed from ResearchProgress to number to match backend
   query: string;
   created_at: string;
   updated_at: string;

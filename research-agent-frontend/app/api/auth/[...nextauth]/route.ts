@@ -17,8 +17,9 @@ const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Call backend API to authenticate
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/auth/login`, {
+          // Call backend API to authenticate (use internal service name for server-side calls)
+          const apiUrl = process.env.INTERNAL_API_URL || 'http://research-agent:8000'
+          const res = await fetch(`${apiUrl}/api/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -33,7 +34,7 @@ const authOptions: NextAuthOptions = {
 
           if (res.ok && data.access_token) {
             // Get user info
-            const userRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/auth/me`, {
+            const userRes = await fetch(`${apiUrl}/api/auth/me`, {
               headers: {
                 'Authorization': `Bearer ${data.access_token}`,
               },
@@ -59,15 +60,61 @@ const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }: { token: JWT; user: any }) {
+    async jwt({ token, user, account, trigger, session }: { token: JWT; user: any; account: any; trigger?: string; session?: any }) {
+      // Initial sign in
       if (user) {
         token.id = user.id
         token.email = user.email
         token.name = user.name
         token.accessToken = user.accessToken
         token.refreshToken = user.refreshToken
+        // Store token expiry time (120 minutes from now)
+        token.accessTokenExpires = Date.now() + 120 * 60 * 1000
       }
-      return token
+
+      // Handle manual session update (from token refresh)
+      if (trigger === 'update' && session) {
+        token.accessToken = session.accessToken
+        token.refreshToken = session.refreshToken
+        token.accessTokenExpires = Date.now() + 120 * 60 * 1000
+      }
+
+      // Return previous token if the access token has not expired yet
+      if (Date.now() < (token.accessTokenExpires as number || 0)) {
+        return token
+      }
+
+      // Access token has expired, try to refresh it
+      try {
+        const apiUrl = process.env.INTERNAL_API_URL || 'http://research-agent:8000'
+        const response = await fetch(`${apiUrl}/api/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            refresh_token: token.refreshToken,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (response.ok && data.access_token) {
+          // Update token with new access token
+          token.accessToken = data.access_token
+          token.refreshToken = data.refresh_token
+          token.accessTokenExpires = Date.now() + 120 * 60 * 1000
+          return token
+        }
+
+        // Refresh failed
+        throw new Error('Token refresh failed')
+      } catch (error) {
+        console.error('Error refreshing token:', error)
+        // Return the old token and let the client handle the error
+        token.error = 'RefreshAccessTokenError'
+        return token
+      }
     },
     async session({ session, token }: { session: any; token: JWT }) {
       if (token) {
@@ -78,6 +125,7 @@ const authOptions: NextAuthOptions = {
         }
         session.accessToken = token.accessToken
         session.refreshToken = token.refreshToken
+        session.error = token.error
       }
       return session
     },

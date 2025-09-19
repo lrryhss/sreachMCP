@@ -377,7 +377,7 @@ async def get_research_result(
         sources=task.result.sources,
         query_analysis=task.result.query_analysis,
         detailed_analysis=task.result.detailed_analysis,
-        metadata=task.result.result_metadata
+        metadata=task.result.result_metadata if isinstance(task.result.result_metadata, dict) else None
     )
 
 
@@ -425,7 +425,7 @@ async def get_research_report(
         "sources": task.result.sources,
         "query_analysis": task.result.query_analysis,
         "detailed_analysis": task.result.detailed_analysis,
-        "metadata": task.result.result_metadata,
+        "metadata": task.result.metadata,
         "sources_used": task.result.sources_used
     }
 

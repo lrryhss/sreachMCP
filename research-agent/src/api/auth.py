@@ -51,6 +51,7 @@ class UserResponse(BaseModel):
     email: str
     username: str
     full_name: Optional[str]
+    role: str = "user"  # Default to user if not present
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -86,6 +87,18 @@ async def get_current_user(
     return user
 
 
+async def get_admin_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Get current user and verify they are an admin"""
+    if not hasattr(current_user, 'role') or current_user.role.value != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: RegisterRequest,
@@ -110,6 +123,7 @@ async def register(
             email=user.email,
             username=user.username,
             full_name=user.full_name,
+            role=user.role.value if hasattr(user, 'role') else "user",
             is_active=user.is_active,
             is_verified=user.is_verified,
             created_at=user.created_at
@@ -218,6 +232,7 @@ async def get_current_user_profile(
         email=current_user.email,
         username=current_user.username,
         full_name=current_user.full_name,
+        role=current_user.role.value if hasattr(current_user, 'role') else "user",
         is_active=current_user.is_active,
         is_verified=current_user.is_verified,
         created_at=current_user.created_at
@@ -248,6 +263,7 @@ async def update_profile(
         email=user.email,
         username=user.username,
         full_name=user.full_name,
+        role=user.role.value if hasattr(user, 'role') else "user",
         is_active=user.is_active,
         is_verified=user.is_verified,
         created_at=user.created_at

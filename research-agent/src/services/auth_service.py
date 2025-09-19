@@ -91,7 +91,11 @@ class AuthService:
         """Create a new user session with tokens"""
         # Create tokens
         access_token = self.create_access_token(
-            data={"sub": str(user.id), "username": user.username}
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value if hasattr(user, 'role') else "user"
+            }
         )
         refresh_token = self.create_refresh_token(
             data={"sub": str(user.id)}

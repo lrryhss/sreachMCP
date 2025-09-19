@@ -14,6 +14,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 
+# Try to import pgvector, use fallback if not available
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    # Fallback to regular Column if pgvector is not installed
+    Vector = lambda dim: JSONB
+
 Base = declarative_base()
 
 
@@ -45,6 +52,12 @@ class SharePermission(str, enum.Enum):
     ADMIN = "admin"
 
 
+class UserRole(str, enum.Enum):
+    """User role enumeration"""
+    USER = "USER"
+    ADMIN = "ADMIN"
+
+
 class User(Base):
     """User account model"""
     __tablename__ = "users"
@@ -54,6 +67,7 @@ class User(Base):
     username = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255))
+    role = Column(SQLEnum(UserRole, name="user_role"), nullable=False, default=UserRole.USER, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
@@ -138,11 +152,15 @@ class ResearchResult(Base):
     sources = Column(JSONB, nullable=False)
     query_analysis = Column(JSONB)
     detailed_analysis = Column(JSONB)
-    result_metadata = Column("metadata", JSONB)
+    result_metadata = Column(JSONB)
     featured_media = Column(JSONB)
     sources_used = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now())
+
+    # Embedding columns for GraphRAG
+    synthesis_embedding = Column(Vector(384))
+    query_embedding = Column(Vector(384))
 
     # Relationships
     task = relationship("ResearchTask", back_populates="result")
@@ -164,6 +182,9 @@ class ResearchArtifact(Base):
     artifact_metadata = Column("metadata", JSONB)
     size_bytes = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    # Embedding column for GraphRAG
+    content_embedding = Column(Vector(384))
 
     # Relationships
     task = relationship("ResearchTask", back_populates="artifacts")

@@ -1,0 +1,344 @@
+/* Enhanced Chat Message Styles */
+
+/* Markdown Content Container */
+.markdown-content {
+  @apply text-gray-900 dark:text-gray-100;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tables - Professional styling with alternating rows */
+.markdown-content table {
+  @apply border-collapse w-full my-4 shadow-sm rounded-lg overflow-hidden;
+}
+
+.markdown-content thead {
+  @apply bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900;
+}
+
+.markdown-content th {
+  @apply px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider dark:text-gray-300 border-b border-gray-200 dark:border-gray-700;
+}
+
+.markdown-content tbody tr {
+  @apply transition-colors duration-150 ease-in-out;
+}
+
+.markdown-content tbody tr:nth-child(even) {
+  @apply bg-gray-50 dark:bg-gray-800/50;
+}
+
+.markdown-content tbody tr:hover {
+  @apply bg-blue-50 dark:bg-blue-900/20;
+}
+
+.markdown-content td {
+  @apply px-4 py-3 text-sm whitespace-normal border-b border-gray-100 dark:border-gray-800;
+}
+
+/* Code blocks with syntax highlighting */
+.markdown-content pre {
+  @apply my-4 rounded-lg overflow-x-auto shadow-md;
+  max-width: 100%;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.markdown-content pre:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.markdown-content code {
+  @apply font-mono text-sm;
+}
+
+.markdown-content :not(pre) > code {
+  @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono text-red-600 dark:text-red-400;
+}
+
+/* Syntax highlighting theme */
+.hljs {
+  @apply bg-gray-900 text-gray-100 p-4;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-title {
+  @apply text-purple-400;
+}
+
+.hljs-string,
+.hljs-attr {
+  @apply text-green-400;
+}
+
+.hljs-number,
+.hljs-literal {
+  @apply text-orange-400;
+}
+
+.hljs-comment,
+.hljs-quote {
+  @apply text-gray-500 italic;
+}
+
+.hljs-function,
+.hljs-class {
+  @apply text-blue-400;
+}
+
+/* Lists with better spacing */
+.markdown-content ul {
+  @apply my-3 ml-6 space-y-1.5;
+}
+
+.markdown-content ul li {
+  @apply list-disc marker:text-gray-400;
+}
+
+.markdown-content ol {
+  @apply my-3 ml-6 space-y-1.5;
+}
+
+.markdown-content ol li {
+  @apply list-decimal marker:text-gray-500;
+}
+
+.markdown-content li {
+  @apply pl-1;
+}
+
+/* Nested lists */
+.markdown-content li ul,
+.markdown-content li ol {
+  @apply mt-1.5 mb-0;
+}
+
+/* Headers with visual hierarchy */
+.markdown-content h1 {
+  @apply text-2xl font-bold mt-6 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700;
+}
+
+.markdown-content h2 {
+  @apply text-xl font-semibold mt-5 mb-3 text-gray-800 dark:text-gray-200;
+}
+
+.markdown-content h3 {
+  @apply text-lg font-semibold mt-4 mb-2 text-gray-700 dark:text-gray-300;
+}
+
+.markdown-content h4 {
+  @apply text-base font-semibold mt-3 mb-2 text-gray-600 dark:text-gray-400;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  @apply border-l-4 border-blue-400 pl-4 py-2 my-4 italic bg-blue-50 dark:bg-blue-900/20 text-gray-700 dark:text-gray-300 rounded-r-md;
+}
+
+/* Horizontal rules */
+.markdown-content hr {
+  @apply my-6 border-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent dark:via-gray-600;
+}
+
+/* Links */
+.markdown-content a {
+  @apply text-blue-600 hover:text-blue-800 underline underline-offset-2 dark:text-blue-400 dark:hover:text-blue-300 transition-colors;
+}
+
+/* Strong emphasis */
+.markdown-content strong {
+  @apply font-semibold text-gray-900 dark:text-gray-100;
+}
+
+/* Paragraphs */
+.markdown-content p {
+  @apply my-2 leading-relaxed;
+}
+
+/* Mermaid diagrams */
+.mermaid-diagram {
+  @apply my-4 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mermaid-diagram:hover {
+  @apply shadow-lg;
+  transform: translateY(-2px);
+}
+
+.mermaid-diagram.expanded {
+  @apply fixed inset-4 z-50 bg-white dark:bg-gray-900 p-8 overflow-auto;
+  animation: expandIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mermaid-diagram svg {
+  @apply mx-auto;
+}
+
+/* Responsive table wrapper */
+@media (max-width: 640px) {
+  .markdown-content table {
+    @apply text-xs;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    @apply px-2 py-2;
+  }
+
+  /* Convert table to cards on mobile */
+  .markdown-content tbody tr {
+    @apply block mb-3 border border-gray-200 dark:border-gray-700 rounded-lg p-3;
+  }
+
+  .markdown-content tbody td {
+    @apply block text-right border-0 relative pl-[50%];
+  }
+
+  .markdown-content tbody td:before {
+    content: attr(data-label);
+    @apply absolute left-3 font-semibold text-gray-600 dark:text-gray-400;
+  }
+}
+
+/* Special content cards */
+.content-card {
+  @apply my-4 p-4 rounded-lg shadow-sm border;
+}
+
+.content-card.info {
+  @apply bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800;
+}
+
+.content-card.warning {
+  @apply bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800;
+}
+
+.content-card.success {
+  @apply bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800;
+}
+
+.content-card.error {
+  @apply bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800;
+}
+
+/* Animated loading for streaming responses */
+@keyframes pulse-text {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.streaming-text {
+  animation: pulse-text 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Message entry animation */
+.message-entry {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-10px);
+  }
+}
+
+/* Copy button styling */
+.copy-button {
+  @apply absolute top-2 right-2 opacity-0 transition-all duration-200;
+}
+
+.markdown-content pre:hover .copy-button {
+  @apply opacity-100;
+}
+
+/* Button hover effects */
+button {
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* Scrollbar styling for code blocks */
+.markdown-content pre::-webkit-scrollbar {
+  @apply h-2;
+}
+
+.markdown-content pre::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+.markdown-content pre::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded;
+}
+
+.markdown-content pre::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}

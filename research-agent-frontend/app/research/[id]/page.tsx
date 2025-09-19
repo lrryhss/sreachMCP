@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { UserMenu } from '@/components/user-menu';
 import { ResearchProgress } from '@/components/research/research-progress';
 import { ResearchResults } from '@/components/research/research-results';
 import { useResearch } from '@/hooks/use-research';
@@ -99,11 +100,14 @@ export default function ResearchDetailPage() {
           Back to History
         </Button>
 
-        {!isComplete && !isFailed && (
-          <Button onClick={() => router.push('/')}>
-            Start New Research
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isComplete && !isFailed && (
+            <Button onClick={() => router.push('/')}>
+              Start New Research
+            </Button>
+          )}
+          <UserMenu />
+        </div>
       </div>
 
       {isInProgress && status.data && (

@@ -13,7 +13,8 @@ import {
   TrendingUp,
   BarChart3,
   Sparkles,
-  Home
+  Home,
+  MessageSquare
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -77,8 +78,14 @@ const navigation = [
   },
   {
     name: "New Research",
-    href: "/",
+    href: "/research/new",
     icon: Plus,
+  },
+  {
+    name: "Research Chat",
+    href: "/chat",
+    icon: MessageSquare,
+    badge: "New",
   },
   {
     name: "Analytics",
@@ -125,6 +132,11 @@ export function AppSidebar() {
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.name}</span>
+                      {item.badge && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {item.badge}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

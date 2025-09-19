@@ -16,6 +16,7 @@ from ..services.database_service import DatabaseService
 from ..api.auth import get_current_user
 from ..agent.orchestrator import ResearchOrchestrator
 from ..services.report_generator import ReportGenerator
+from ..services.embedding_service import get_embedding_service
 
 logger = get_logger()
 
@@ -185,7 +186,53 @@ async def execute_research(
                 task_id=task_id
             )
 
-            # Save results to database
+            # Generate embeddings for GraphRAG
+            synthesis_embedding = None
+            query_embedding = None
+
+            try:
+                embedding_service = await get_embedding_service()
+
+                # Generate query embedding
+                query_embedding_array = await embedding_service.embed_text(query)
+                query_embedding = query_embedding_array.tolist()
+
+                # Generate synthesis embedding from combined synthesis content
+                synthesis_data = results.get("synthesis", {})
+                synthesis_text = ""
+
+                # Extract text from synthesis for embedding
+                if isinstance(synthesis_data, dict):
+                    if "executive_summary" in synthesis_data:
+                        synthesis_text += str(synthesis_data["executive_summary"]) + " "
+                    if "key_findings" in synthesis_data:
+                        findings = synthesis_data["key_findings"]
+                        if isinstance(findings, list):
+                            synthesis_text += " ".join(str(f) for f in findings) + " "
+                        else:
+                            synthesis_text += str(findings) + " "
+                    if "conclusion" in synthesis_data:
+                        synthesis_text += str(synthesis_data["conclusion"])
+
+                if synthesis_text.strip():
+                    synthesis_embedding_array = await embedding_service.embed_text(synthesis_text.strip())
+                    synthesis_embedding = synthesis_embedding_array.tolist()
+
+                logger.info(
+                    "Generated embeddings for research",
+                    task_id=task_id,
+                    query_embedding_dim=len(query_embedding) if query_embedding else 0,
+                    synthesis_embedding_dim=len(synthesis_embedding) if synthesis_embedding else 0
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "Failed to generate embeddings",
+                    task_id=task_id,
+                    error=str(e)
+                )
+
+            # Save results to database with embeddings
             await db_service.results.create(
                 task_id=task_db_id,
                 synthesis=results.get("synthesis", {}),
@@ -194,7 +241,9 @@ async def execute_research(
                 detailed_analysis=results.get("detailed_analysis"),
                 metadata=results.get("metadata"),
                 featured_media=results.get("featured_media"),
-                sources_used=results.get("sources_used", 0)
+                sources_used=results.get("sources_used", 0),
+                synthesis_embedding=synthesis_embedding,
+                query_embedding=query_embedding
             )
 
             # Update task status

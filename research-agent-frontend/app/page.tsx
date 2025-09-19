@@ -10,6 +10,9 @@ import { ResearchResults } from '@/components/research/research-results';
 import { useResearch, useResearchHistory } from '@/hooks/use-research';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UserMenu } from '@/components/user-menu';
+import { Button } from '@/components/ui/button';
+import { LayoutDashboard } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
@@ -79,11 +82,20 @@ export default function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">AI Research Assistant</h1>
-        <p className="text-muted-foreground">
-          Get comprehensive research reports on any topic in minutes
-        </p>
+      <div className="flex justify-between items-start mb-6">
+        <div className="text-center flex-1 space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">AI Research Assistant</h1>
+          <p className="text-muted-foreground">
+            Get comprehensive research reports on any topic in minutes
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push('/dashboard')}>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </Button>
+          <UserMenu />
+        </div>
       </div>
 
       {showForm && (

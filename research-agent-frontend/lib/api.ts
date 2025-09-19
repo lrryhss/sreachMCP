@@ -7,7 +7,7 @@ import type {
 } from './types';
 
 class ResearchAPI {
-  private client: AxiosInstance;
+  public client: AxiosInstance;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private isRefreshing = false;
@@ -79,10 +79,17 @@ class ResearchAPI {
             // Refresh failed, process queue with error
             this.processQueue(refreshError);
 
-            // Clear tokens and redirect to login
+            // Clear tokens and redirect to landing
             this.clearTokens();
             if (typeof window !== 'undefined') {
-              window.location.href = '/auth/signin';
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+
+              // Clear NextAuth session
+              sessionStorage.clear();
+
+              // Redirect to landing page (not signin)
+              window.location.href = '/landing';
             }
             return Promise.reject(refreshError);
           } finally {
@@ -90,7 +97,32 @@ class ResearchAPI {
           }
         }
 
-        // For non-401 errors or if no refresh token, handle normally
+        // Handle 403 Forbidden errors
+        if (error.response?.status === 403) {
+          const errorMessage = error.response.data?.detail || 'You do not have permission to access this resource.';
+          console.error('Access forbidden:', errorMessage);
+
+          const enhancedError: any = new Error(errorMessage);
+          enhancedError.statusCode = 403;
+          enhancedError.isAuthError = true;
+          return Promise.reject(enhancedError);
+        }
+
+        // Handle 401 without refresh token
+        if (error.response?.status === 401 && !this.refreshToken) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+
+            // Clear NextAuth session
+            sessionStorage.clear();
+
+            // Redirect to landing page
+            window.location.href = '/landing';
+          }
+        }
+
+        // For other errors, handle normally
         if (error.response?.data) {
           const errorData = error.response.data as any;
           if (errorData.error) {

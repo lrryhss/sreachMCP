@@ -3,19 +3,43 @@ import { NextResponse } from "next/server"
 
 export default withAuth(
   function middleware(req) {
+    const token = req.nextauth.token
+    const pathname = req.nextUrl.pathname
+
+    // If user is authenticated and tries to access root, redirect to dashboard
+    if (token && pathname === '/') {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+
+    // If user is not authenticated and tries to access root, redirect to landing
+    if (!token && pathname === '/') {
+      return NextResponse.redirect(new URL('/landing', req.url))
+    }
+
     // Allow the request to proceed
     return NextResponse.next()
   },
   {
     callbacks: {
       authorized: ({ req, token }) => {
-        // Allow auth pages to be accessed without token
-        if (req.nextUrl.pathname.startsWith("/auth/")) {
-          return true
-        }
+        const pathname = req.nextUrl.pathname
 
-        // Allow API routes (they have their own auth)
-        if (req.nextUrl.pathname.startsWith("/api/")) {
+        // Public pages that don't require auth
+        const publicPaths = [
+          '/landing',
+          '/auth/',
+          '/api/',
+          '/demo',
+          '/privacy',
+          '/terms',
+          '/about'
+        ]
+
+        // Check if current path is public
+        const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
+
+        // Allow public paths without token
+        if (isPublicPath) {
           return true
         }
 
@@ -30,6 +54,7 @@ export default withAuth(
     },
     pages: {
       signIn: "/auth/signin",
+      error: "/auth/error",
     },
   }
 )

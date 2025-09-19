@@ -252,7 +252,9 @@ class ResearchResultRepository:
                     detailed_analysis: Optional[Dict[str, Any]] = None,
                     metadata: Optional[Dict[str, Any]] = None,
                     featured_media: Optional[Dict[str, Any]] = None,
-                    sources_used: Optional[int] = None) -> ResearchResult:
+                    sources_used: Optional[int] = None,
+                    synthesis_embedding: Optional[List[float]] = None,
+                    query_embedding: Optional[List[float]] = None) -> ResearchResult:
         """Create research result"""
         result = ResearchResult(
             task_id=task_id,
@@ -262,7 +264,9 @@ class ResearchResultRepository:
             detailed_analysis=detailed_analysis,
             result_metadata=metadata,
             featured_media=featured_media,
-            sources_used=sources_used or len(sources)
+            sources_used=sources_used or len(sources),
+            synthesis_embedding=synthesis_embedding,
+            query_embedding=query_embedding
         )
         self.session.add(result)
         await self.session.flush()

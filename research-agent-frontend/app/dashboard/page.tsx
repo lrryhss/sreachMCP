@@ -1,12 +1,13 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useAuthCheck } from "@/hooks/use-auth-check"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UserMenu } from "@/components/user-menu"
 import {
   FileText,
   Clock,
@@ -35,7 +36,7 @@ interface ResearchTask {
 }
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { session, status } = useAuthCheck()
   const router = useRouter()
   const [tasks, setTasks] = useState<ResearchTask[]>([])
   const [loading, setLoading] = useState(true)
@@ -163,10 +164,13 @@ export default function DashboardPage() {
             Welcome back, {session.user?.name || session.user?.email}
           </p>
         </div>
-        <Button onClick={() => router.push('/')}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Research
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button onClick={() => router.push('/research/new')}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Research
+          </Button>
+          <UserMenu />
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -234,7 +238,7 @@ export default function DashboardPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No research tasks yet</p>
-              <Button className="mt-4" variant="outline" onClick={() => router.push('/')}>
+              <Button className="mt-4" variant="outline" onClick={() => router.push('/research/new')}>
                 Start Your First Research
               </Button>
             </div>

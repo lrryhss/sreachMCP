@@ -17,7 +17,7 @@ from .config import settings
 from .agent.orchestrator import ResearchOrchestrator
 from .services.report_generator import ReportGenerator
 from .database import db_manager
-from .api import auth, research
+from .api import auth, research, chat, admin
 
 # Use uvloop for better async performance
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -78,6 +78,8 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(research.router)
+app.include_router(chat.router)
+app.include_router(admin.router)
 
 
 # Request/Response Models
